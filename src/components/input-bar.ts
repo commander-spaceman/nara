@@ -1,10 +1,16 @@
 import type { InputMode } from "./app";
 
+interface InputBarCallbacks {
+  onSubmit: (text: string) => void;
+}
+
 export class InputBar {
   private container: HTMLElement;
+  private callbacks: InputBarCallbacks;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, callbacks: InputBarCallbacks) {
     this.container = container;
+    this.callbacks = callbacks;
   }
 
   mount(): void {
@@ -29,5 +35,19 @@ export class InputBar {
           <span>recording...</span>
         </div>
       `;
+
+    if (mode === "chat") {
+      const input = this.container.querySelector(
+        "#chat-input",
+      ) as HTMLInputElement;
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && input.value.trim()) {
+          const text = input.value.trim();
+          input.value = "";
+          this.callbacks.onSubmit(text);
+        }
+      });
+      input.focus();
+    }
   }
 }

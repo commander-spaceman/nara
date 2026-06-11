@@ -3,6 +3,8 @@ import { ModelArea } from "./model-area";
 import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
+import { chat, setApiKey, getApiKey } from "../modules/llm";
+import type { Message } from "../modules/llm";
 
 export type InputMode = "chat" | "mic";
 
@@ -13,18 +15,24 @@ export class App {
   private subtitleBox!: SubtitleBox;
   private controls!: Controls;
   private inputBar!: InputBar;
+  private history: Message[] = [];
 
   constructor(container: HTMLElement) {
     this.container = container;
   }
 
   mount(): void {
+    const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
+    if (apiKey) setApiKey(apiKey);
+
     this.container.innerHTML = `
       <div id="debug-panel"></div>
       <div id="model-area" data-tauri-drag-region></div>
-      <div id="subtitle-box"></div>
-      <div id="controls"></div>
-      <div id="input-bar"></div>
+      <div id="bottom-section">
+        <div id="subtitle-box"></div>
+        <div id="controls"></div>
+        <div id="input-bar"></div>
+      </div>
     `;
 
     this.debugPanel = new DebugPanel(this.el("debug-panel"));
@@ -35,8 +43,13 @@ export class App {
 
     this.subtitleBox = new SubtitleBox(this.el("subtitle-box"));
     this.subtitleBox.mount();
+    this.subtitleBox.setText(
+      apiKey ? "ready" : "VITE_DEEPSEEK_API_KEY not set in .env",
+    );
 
-    this.inputBar = new InputBar(this.el("input-bar"));
+    this.inputBar = new InputBar(this.el("input-bar"), {
+      onSubmit: (text: string) => this.handleSubmit(text),
+    });
 
     this.controls = new Controls(this.el("controls"), {
       onModeChange: (mode: InputMode) => {
@@ -47,8 +60,23 @@ export class App {
     this.inputBar.mount();
   }
 
-  setSubtitle(text: string): void {
-    this.subtitleBox.setText(text);
+  private async handleSubmit(text: string): Promise<void> {
+    if (!getApiKey()) {
+      this.subtitleBox.setText("api key not configured — check .env");
+      return;
+    }
+
+    this.subtitleBox.setText("...");
+
+    try {
+      const response = await chat(text, this.history);
+      this.history.push({ role: "user", content: text });
+      this.history.push({ role: "assistant", content: response });
+      this.subtitleBox.setText(response);
+    } catch (err) {
+      this.subtitleBox.setText("comms error — try again");
+      console.error("LLM error:", err);
+    }
   }
 
   private el(id: string): HTMLElement {
