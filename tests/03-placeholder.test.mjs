@@ -25,14 +25,24 @@ let failures = 0;
     console.error("  FAIL  index.html: " + err.message);
     failures++;
   }
+  try {
+    ok(html.includes("data-tauri-drag-region"), "index.html has drag region");
+    console.log("  PASS  index.html drag region");
+  } catch (err) {
+    console.error("  FAIL  index.html: " + err.message);
+    failures++;
+  }
 }
 
 // style.css tests
 {
   const css = readFileSync(join(root, "src", "style.css"), "utf-8");
   try {
-    ok(css.includes("transparent"), "style.css has transparent background");
-    console.log("  PASS  style.css has transparent");
+    ok(
+      css.includes("rgba(0, 0, 0, 0.004)"),
+      "style.css has minimal background for mouse capture",
+    );
+    console.log("  PASS  style.css has rgba background");
   } catch (err) {
     console.error("  FAIL  style.css: " + err.message);
     failures++;
@@ -55,9 +65,17 @@ let failures = 0;
 
 // main.ts tests
 {
+  const main = readFileSync(join(root, "src", "main.ts"), "utf-8");
   try {
     ok(existsSync(join(root, "src", "main.ts")), "main.ts exists");
     console.log("  PASS  main.ts exists");
+  } catch (err) {
+    console.error("  FAIL  main.ts: " + err.message);
+    failures++;
+  }
+  try {
+    ok(main.includes("startDragging"), "main.ts has startDragging");
+    console.log("  PASS  main.ts drag support");
   } catch (err) {
     console.error("  FAIL  main.ts: " + err.message);
     failures++;
@@ -80,4 +98,4 @@ if (failures > 0) {
   process.exit(1);
 }
 
-console.log(`\nAll 7 tests passed.`);
+console.log(`\nAll 9 tests passed.`);
