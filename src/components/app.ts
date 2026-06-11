@@ -38,6 +38,7 @@ export class App {
 
     this.debugPanel = new DebugPanel(this.el("debug-panel"));
     this.debugPanel.mount();
+    this.debugPanel.update({ memory: "0 msgs" });
 
     this.modelArea = new ModelArea(this.el("model-area"));
     this.modelArea.mount();
@@ -79,6 +80,7 @@ export class App {
 
       saveMessage("user", text).catch(() => {});
       saveMessage("assistant", response).catch(() => {});
+      this.debugPanel.update({ memory: `${this.history.length / 2} msgs` });
     } catch (err) {
       this.subtitleBox.setText("comms error — try again");
       console.error("LLM error:", err);
