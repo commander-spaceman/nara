@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::Manager;
+use tauri::{Manager, RunEvent, WindowEvent};
 
 mod commands;
 mod db;
@@ -22,10 +22,11 @@ fn health_check() -> HealthResponse {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             health_check,
             commands::memory::memory_start_session,
+            commands::memory::memory_end_session,
             commands::memory::memory_save_message,
             commands::memory::memory_search,
             commands::memory::memory_get_profile,
@@ -46,10 +47,26 @@ pub fn run() {
                 .expect("failed to resolve app data dir");
 
             let database = Database::new(app_dir).expect("failed to initialize database");
+            database.close_previous_session().ok();
             app.manage(database);
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_window_event(|window, event| {
+            if matches!(event, WindowEvent::Destroyed) {
+                if let Some(db) = window.try_state::<Database>() {
+                    db.end_current_session().ok();
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::Exit = event {
+            if let Some(db) = app_handle.try_state::<Database>() {
+                db.end_current_session().ok();
+            }
+        }
+    });
 }

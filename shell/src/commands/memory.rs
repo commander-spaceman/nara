@@ -14,6 +14,11 @@ pub fn memory_start_session(db: State<'_, Database>, session_id: String) -> Resu
 }
 
 #[tauri::command]
+pub fn memory_end_session(db: State<'_, Database>) -> Result<(), String> {
+    db.end_current_session().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn memory_save_message(
     db: State<'_, Database>,
     session_id: String,

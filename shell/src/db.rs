@@ -4,6 +4,7 @@ use std::sync::Mutex;
 
 pub struct Database {
     pub conn: Mutex<Connection>,
+    pub current_session: Mutex<Option<String>>,
 }
 
 impl Database {
@@ -43,7 +44,18 @@ impl Database {
 
         Ok(Database {
             conn: Mutex::new(conn),
+            current_session: Mutex::new(None),
         })
+    }
+
+    pub fn close_previous_session(&self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE sessions SET ended_at = unixepoch()
+             WHERE id = (SELECT id FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1)",
+            [],
+        )?;
+        Ok(())
     }
 
     pub fn start_session(&self, id: &str) -> Result<(), rusqlite::Error> {
@@ -52,6 +64,20 @@ impl Database {
             "INSERT INTO sessions (id, started_at) VALUES (?1, unixepoch())",
             params![id],
         )?;
+        self.current_session.lock().unwrap().replace(id.to_string());
+        Ok(())
+    }
+
+    pub fn end_current_session(&self) -> Result<(), rusqlite::Error> {
+        let sid = self.current_session.lock().ok().and_then(|mut s| s.take());
+        if let Some(ref id) = sid {
+            if let Ok(conn) = self.conn.lock() {
+                conn.execute(
+                    "UPDATE sessions SET ended_at = unixepoch() WHERE id = ?1",
+                    params![id],
+                )?;
+            }
+        }
         Ok(())
     }
 
@@ -65,6 +91,10 @@ impl Database {
         conn.execute(
             "INSERT INTO messages (session_id, role, content, created_at) VALUES (?1, ?2, ?3, unixepoch())",
             params![session_id, role, content],
+        )?;
+        conn.execute(
+            "UPDATE sessions SET ended_at = unixepoch() WHERE id = ?1",
+            params![session_id],
         )?;
         Ok(())
     }
@@ -118,5 +148,11 @@ impl Database {
             params![key, value],
         )?;
         Ok(())
+    }
+}
+
+impl Drop for Database {
+    fn drop(&mut self) {
+        self.end_current_session().ok();
     }
 }
