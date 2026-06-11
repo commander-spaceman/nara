@@ -28,6 +28,22 @@ export function getSessionId(): string {
 export async function startSession(): Promise<void> {
   sessionId = generateId();
   await invoke("memory_start_session", { sessionId });
+  console.log(
+    `%c[session]%c ${sessionId}`,
+    "color: #f0c040; font-weight: bold",
+    "color: #8ab4f8",
+  );
+}
+
+export async function endSession(): Promise<void> {
+  if (!sessionId) return;
+  await invoke("memory_end_session");
+  console.log(
+    `%c[session]%c ${sessionId} %cended`,
+    "color: #f0c040; font-weight: bold",
+    "color: #8ab4f8",
+    "color: #e04444",
+  );
 }
 
 export async function saveMessage(

@@ -5,7 +5,7 @@ import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
 import { chat, setApiKey, getApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
-import { startSession, saveMessage } from "../modules/memory";
+import { startSession, saveMessage, endSession } from "../modules/memory";
 
 export type InputMode = "chat" | "mic";
 
@@ -62,6 +62,10 @@ export class App {
     this.inputBar.mount();
 
     startSession().catch(() => {});
+
+    window.addEventListener("beforeunload", () => {
+      endSession().catch(() => {});
+    });
   }
 
   private async handleSubmit(text: string): Promise<void> {
@@ -78,9 +82,15 @@ export class App {
       this.history.push({ role: "assistant", content: response });
       this.subtitleBox.setText(response);
 
+      const count = this.history.length / 2;
       saveMessage("user", text).catch(() => {});
       saveMessage("assistant", response).catch(() => {});
-      this.debugPanel.update({ memory: `${this.history.length / 2} msgs` });
+      this.debugPanel.update({ memory: `${count} msgs` });
+      console.log(
+        `%c[LLM memory]%c ${count} msgs`,
+        "color: #d0a0ff; font-weight: bold",
+        "color: #aaa",
+      );
     } catch (err) {
       this.subtitleBox.setText("comms error — try again");
       console.error("LLM error:", err);
