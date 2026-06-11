@@ -62,6 +62,8 @@ export class DebugPanel {
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
     if (e.key === "d" && e.ctrlKey === false && e.metaKey === false) {
       e.preventDefault();
       this.toggle();
