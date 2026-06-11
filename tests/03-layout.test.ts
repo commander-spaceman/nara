@@ -27,8 +27,9 @@ describe("Components & Layout", () => {
     it("loads main.ts", () => {
       expect(html).toContain('src="/src/main.ts"');
     });
-    it("has drag region", () => {
-      expect(html).toContain("data-tauri-drag-region");
+    it("has drag region in model area", () => {
+      const app = readFileSync(join(compDir, "app.ts"), "utf-8");
+      expect(app).toContain("data-tauri-drag-region");
     });
     it("has #app mount point", () => {
       expect(html).toContain('id="app"');
