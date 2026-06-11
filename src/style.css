@@ -26,4 +26,9 @@ body {
   font-size: 24px;
   color: #ffffff;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+
+#app:active {
+  cursor: grabbing;
 }
