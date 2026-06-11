@@ -5,7 +5,12 @@ import "./style.css";
 document.addEventListener(
   "mousedown",
   (e) => {
-    if (e.button === 0) {
+    const target = e.target as HTMLElement;
+    if (
+      e.button === 0 &&
+      target.closest("#model-area") &&
+      !target.closest("#modal-overlay")
+    ) {
       getCurrentWindow().startDragging();
     }
   },
