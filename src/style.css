@@ -6,11 +6,22 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg: rgba(0, 0, 0, 0.004);
+  --panel-bg: rgba(16, 16, 24, 0.94);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --text: rgba(255, 255, 255, 0.85);
+  --text-dim: rgba(255, 255, 255, 0.38);
+  --accent: rgba(130, 150, 230, 0.85);
+  --btn-bg: rgba(255, 255, 255, 0.07);
+  --btn-hover: rgba(255, 255, 255, 0.14);
+}
+
 html,
 body {
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.004);
+  background: var(--bg);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
@@ -20,15 +31,238 @@ body {
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   font-family: system-ui, sans-serif;
-  font-size: 24px;
-  color: #ffffff;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  color: var(--text);
   cursor: grab;
+  padding: 6px 10px 10px;
+  gap: 6px;
 }
 
 #app:active {
   cursor: grabbing;
+}
+
+/* ---- debug panel ---- */
+#debug-panel {
+  display: flex;
+  gap: 0;
+  border-radius: 10px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.debug-section {
+  flex: 1;
+  padding: 8px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.debug-section + .debug-section {
+  border-left: 1px solid var(--panel-border);
+}
+
+.debug-section-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.debug-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+  font-family: ui-monospace, Consolas, monospace;
+  line-height: 1.6;
+}
+
+.debug-row span:first-child {
+  color: var(--text-dim);
+}
+
+.debug-row span:last-child {
+  color: var(--accent);
+}
+
+/* ---- model area ---- */
+#model-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+#model-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.placeholder-silhouette {
+  width: 120px;
+  height: 220px;
+  border: 2px dashed var(--text-dim);
+  border-radius: 18px 18px 30% 30%;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.placeholder-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: ui-monospace, Consolas, monospace;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* ---- subtitle box ---- */
+#subtitle-box {
+  min-height: 32px;
+  margin: 0 6px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+#subtitle-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+/* ---- controls ---- */
+#controls {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 4px 0 2px;
+  flex-shrink: 0;
+}
+
+.ctrl-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ctrl-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.ctrl-btn:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent);
+}
+
+.ctrl-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ctrl-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+/* ---- input container ---- */
+#input-container {
+  padding: 0 6px 2px;
+  flex-shrink: 0;
+}
+
+#input-container.hidden {
+  display: none;
+}
+
+.input-mode.hidden {
+  display: none;
+}
+
+#chat-input-area {
+  width: 100%;
+}
+
+#chat-input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+#chat-input:focus {
+  border-color: var(--accent);
+}
+
+#chat-input::placeholder {
+  color: var(--text-dim);
+}
+
+#mic-status-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  min-height: 32px;
+}
+
+.recording-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e04444;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.3);
+  }
 }
