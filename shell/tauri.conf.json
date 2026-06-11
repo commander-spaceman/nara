@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "nara",
+  "productName": "Nara'Korrin",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.nara.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -13,9 +13,13 @@
     "windows": [
       {
         "title": "Nara'Korrin",
-        "width": 800,
-        "height": 600,
-        "resizable": true,
+        "width": 550,
+        "height": 700,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
         "fullscreen": false
       }
     ],
