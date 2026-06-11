@@ -43,12 +43,23 @@ describe("Components & Layout", () => {
       "SubtitleBox",
       "Controls",
       "InputBar",
+      "saveMessage",
+      "startSession",
     ];
     for (const name of imports) {
       it(`imports ${name}`, () => {
         expect(app).toContain(name);
       });
     }
+  });
+
+  describe("memory module", () => {
+    it("memory.ts exists", () => {
+      expect(existsSync(join(root, "src", "modules", "memory.ts"))).toBe(true);
+    });
+    it("llm.ts exists", () => {
+      expect(existsSync(join(root, "src", "modules", "llm.ts"))).toBe(true);
+    });
   });
 
   describe("style.css", () => {
