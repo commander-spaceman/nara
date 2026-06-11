@@ -5,32 +5,34 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
+const compDir = join(root, "src", "components");
 
 let failures = 0;
 
-// index.html layout tests
+// component source files
 {
-  const html = readFileSync(join(root, "index.html"), "utf-8");
-  const sections = [
-    "debug-panel",
-    "model-area",
-    "subtitle-box",
-    "controls",
-    "input-container",
-    "btn-mic",
-    "btn-chat",
-    "chat-input",
-    "mic-status-area",
+  const components = [
+    "app.ts",
+    "debug-panel.ts",
+    "model-area.ts",
+    "subtitle-box.ts",
+    "controls.ts",
+    "input-bar.ts",
   ];
-  for (const id of sections) {
+  for (const file of components) {
     try {
-      ok(html.includes(`id="${id}"`), `index.html has #${id}`);
-      console.log(`  PASS  index.html has #${id}`);
+      ok(existsSync(join(compDir, file)), `component ${file} exists`);
+      console.log(`  PASS  component ${file}`);
     } catch (err) {
-      console.error(`  FAIL  index.html: ${err.message}`);
+      console.error(`  FAIL  component: ${err.message}`);
       failures++;
     }
   }
+}
+
+// index.html base
+{
+  const html = readFileSync(join(root, "index.html"), "utf-8");
   try {
     ok(html.includes('src="/src/main.ts"'), "index.html loads main.ts");
     console.log("  PASS  index.html loads main.ts");
@@ -45,9 +47,37 @@ let failures = 0;
     console.error("  FAIL  index.html: " + err.message);
     failures++;
   }
+  try {
+    ok(html.includes('id="app"'), "index.html has #app mount point");
+    console.log("  PASS  index.html has #app");
+  } catch (err) {
+    console.error("  FAIL  index.html: " + err.message);
+    failures++;
+  }
 }
 
-// style.css tests
+// app.ts composes all components
+{
+  const app = readFileSync(join(compDir, "app.ts"), "utf-8");
+  const imports = [
+    "DebugPanel",
+    "ModelArea",
+    "SubtitleBox",
+    "Controls",
+    "InputBar",
+  ];
+  for (const name of imports) {
+    try {
+      ok(app.includes(name), `app.ts imports ${name}`);
+      console.log(`  PASS  app.ts imports ${name}`);
+    } catch (err) {
+      console.error(`  FAIL  app.ts: ${err.message}`);
+      failures++;
+    }
+  }
+}
+
+// style.css
 {
   const css = readFileSync(join(root, "src", "style.css"), "utf-8");
   const checks = [
@@ -55,11 +85,13 @@ let failures = 0;
     ["user-select: none", "disables selection"],
     ["flex-direction: column", "column layout"],
     ["#debug-panel", "debug panel styles"],
+    [".debug-collapsed", "collapsed debug style"],
     ["#model-area", "model area styles"],
     ["#subtitle-box", "subtitle box styles"],
     ["#controls", "controls styles"],
-    ["#input-container", "input container styles"],
+    ["#input-bar", "input bar styles"],
     ["ctrl-btn", "control button styles"],
+    [".ctrl-btn.active", "active button style"],
   ];
   for (const [needle, label] of checks) {
     try {
@@ -72,7 +104,7 @@ let failures = 0;
   }
 }
 
-// main.ts tests
+// main.ts
 {
   try {
     ok(existsSync(join(root, "src", "main.ts")), "main.ts exists");
@@ -85,6 +117,13 @@ let failures = 0;
   try {
     ok(main.includes("startDragging"), "main.ts has drag support");
     console.log("  PASS  main.ts drag support");
+  } catch (err) {
+    console.error("  FAIL  main.ts: " + err.message);
+    failures++;
+  }
+  try {
+    ok(main.includes("import { App }"), "main.ts creates App");
+    console.log("  PASS  main.ts creates App");
   } catch (err) {
     console.error("  FAIL  main.ts: " + err.message);
     failures++;
@@ -107,4 +146,4 @@ if (failures > 0) {
   process.exit(1);
 }
 
-console.log(`\nAll 22 tests passed.`);
+console.log(`\nAll 27 tests passed.`);
