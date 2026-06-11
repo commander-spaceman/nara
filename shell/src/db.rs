@@ -99,6 +99,68 @@ impl Database {
         Ok(())
     }
 
+    pub fn list_sessions(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<(String, i64, Option<i64>, i64)>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut results = Vec::new();
+        let sql = if limit == 0 {
+            "SELECT s.id, s.started_at, s.ended_at, COUNT(m.id) as msg_count
+             FROM sessions s
+             LEFT JOIN messages m ON m.session_id = s.id
+             GROUP BY s.id
+             ORDER BY s.started_at DESC"
+        } else {
+            "SELECT s.id, s.started_at, s.ended_at, COUNT(m.id) as msg_count
+             FROM sessions s
+             LEFT JOIN messages m ON m.session_id = s.id
+             GROUP BY s.id
+             ORDER BY s.started_at DESC
+             LIMIT ?1"
+        };
+        let mut stmt = conn.prepare(sql)?;
+        let map = |row: &rusqlite::Row| -> rusqlite::Result<_> {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, Option<i64>>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
+        };
+        let rows = if limit == 0 {
+            stmt.query_map([], map)?
+        } else {
+            stmt.query_map(params![limit], map)?
+        };
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    pub fn load_session_messages(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<(String, String, i64)>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT role, content, created_at FROM messages WHERE session_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![session_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
     pub fn search_messages(
         &self,
         query: &str,

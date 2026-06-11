@@ -28,6 +28,8 @@ pub fn run() {
             commands::memory::memory_start_session,
             commands::memory::memory_end_session,
             commands::memory::memory_save_message,
+            commands::memory::memory_list_sessions,
+            commands::memory::memory_load_session,
             commands::memory::memory_search,
             commands::memory::memory_get_profile,
             commands::memory::memory_upsert_profile,

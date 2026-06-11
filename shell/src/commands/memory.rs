@@ -30,6 +30,47 @@ pub fn memory_save_message(
 }
 
 #[tauri::command]
+pub fn memory_list_sessions(
+    db: State<'_, Database>,
+    limit: u32,
+) -> Result<Vec<serde_json::Value>, String> {
+    let results = db.list_sessions(limit).map_err(|e| e.to_string())?;
+    let json = results
+        .into_iter()
+        .map(|(id, started_at, ended_at, msg_count)| {
+            serde_json::json!({
+                "id": id,
+                "started_at": started_at,
+                "ended_at": ended_at,
+                "msg_count": msg_count,
+            })
+        })
+        .collect();
+    Ok(json)
+}
+
+#[tauri::command]
+pub fn memory_load_session(
+    db: State<'_, Database>,
+    session_id: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let results = db
+        .load_session_messages(&session_id)
+        .map_err(|e| e.to_string())?;
+    let json = results
+        .into_iter()
+        .map(|(role, content, created_at)| {
+            serde_json::json!({
+                "role": role,
+                "content": content,
+                "created_at": created_at,
+            })
+        })
+        .collect();
+    Ok(json)
+}
+
+#[tauri::command]
 pub fn memory_search(
     db: State<'_, Database>,
     query: String,
