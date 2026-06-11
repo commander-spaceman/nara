@@ -45,13 +45,28 @@ body {
 
 /* ---- debug panel ---- */
 #debug-panel {
+  flex-shrink: 0;
+}
+
+#debug-panel:has(.debug-section) {
   display: flex;
   gap: 0;
   border-radius: 10px;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   overflow: hidden;
-  flex-shrink: 0;
+}
+
+.debug-collapsed {
+  border-radius: 10px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  text-align: center;
+  padding: 4px 0;
+  font-size: 10px;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-dim);
+  cursor: pointer;
 }
 
 .debug-section {
@@ -101,27 +116,11 @@ body {
   min-height: 0;
 }
 
-#model-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.placeholder-silhouette {
-  width: 120px;
-  height: 220px;
-  border: 2px dashed var(--text-dim);
-  border-radius: 18px 18px 30% 30%;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.placeholder-label {
-  font-size: 11px;
-  color: var(--text-dim);
-  font-family: ui-monospace, Consolas, monospace;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+.placeholder-model {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.85;
 }
 
 /* ---- subtitle box ---- */
@@ -185,6 +184,11 @@ body {
   border-color: var(--accent);
 }
 
+.ctrl-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .ctrl-btn svg {
   width: 18px;
   height: 18px;
@@ -198,18 +202,10 @@ body {
   font-family: ui-monospace, Consolas, monospace;
 }
 
-/* ---- input container ---- */
-#input-container {
+/* ---- input bar ---- */
+#input-bar {
   padding: 0 6px 2px;
   flex-shrink: 0;
-}
-
-#input-container.hidden {
-  display: none;
-}
-
-.input-mode.hidden {
-  display: none;
 }
 
 #chat-input-area {
