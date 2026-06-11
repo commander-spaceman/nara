@@ -64,6 +64,29 @@ export async function searchMessages(
   return invoke("memory_search", { query, limit });
 }
 
+export interface SessionInfo {
+  id: string;
+  started_at: number;
+  ended_at: number | null;
+  msg_count: number;
+}
+
+export interface SessionMessage {
+  role: string;
+  content: string;
+  created_at: number;
+}
+
+export async function listSessions(limit = 5): Promise<SessionInfo[]> {
+  return invoke("memory_list_sessions", { limit });
+}
+
+export async function loadSession(
+  sessionId: string,
+): Promise<SessionMessage[]> {
+  return invoke("memory_load_session", { sessionId });
+}
+
 export async function getProfile(): Promise<ProfileEntry[]> {
   return invoke("memory_get_profile");
 }

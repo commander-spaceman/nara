@@ -10,7 +10,7 @@ NEVER use asterisks or special formatting. Just plain spoken text.`;
 
 const BASE_URL = "https://api.deepseek.com/v1";
 const MODEL = "deepseek-v4-pro";
-const MAX_TOKENS = 256;
+const MAX_TOKENS = 512;
 const TEMPERATURE = 0.8;
 
 export interface Message {
