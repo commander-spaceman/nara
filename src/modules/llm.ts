@@ -50,19 +50,30 @@ export async function chat(
     { role: "user", content: userMessage },
   ];
 
+  const requestBody = {
+    model: MODEL,
+    messages,
+    max_tokens: MAX_TOKENS,
+    temperature: TEMPERATURE,
+    thinking: { type: "disabled" },
+  };
+
+  console.log(
+    `%cLLM %c→ %c${messages.length} msgs %cto DeepSeek`,
+    "color: #8ab4f8; font-weight: bold",
+    "color: #aaa",
+    "color: #f0c040; font-weight: bold",
+    "color: #aaa",
+  );
+  console.log(JSON.stringify(requestBody, null, 2));
+
   const response = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
-      thinking: { type: "disabled" },
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -71,6 +82,15 @@ export async function chat(
 
   const data: DeepSeekResponse = await response.json();
   const content = data.choices?.[0]?.message?.content;
+
+  console.log(
+    "%cLLM %c← %cresponse %creceived",
+    "color: #8ab4f8; font-weight: bold",
+    "color: #aaa",
+    "color: #5fdb90; font-weight: bold",
+    "color: #aaa",
+  );
+  console.log(JSON.stringify(data, null, 2));
 
   if (!content || content.trim() === "") {
     throw new Error("Empty response from DeepSeek");
