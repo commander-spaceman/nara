@@ -1,5 +1,5 @@
 import type { Message } from "../modules/llm";
-import { chat, getApiKey } from "../modules/llm";
+import { chat, getApiKey, suggestReply } from "../modules/llm";
 import { saveMessage, getSessionId } from "../modules/memory";
 import { synthesize } from "../modules/tts";
 import { SubtitleBox } from "./subtitle-box";
@@ -75,17 +75,48 @@ export class ChatService {
           `%c┌${"─".repeat(48)}┐`,
           "color: #8ab4f8; font-weight: bold",
         );
+        console.log(
+          `%c│ %cNara %cdice:`,
+          "color: #8ab4f8; font-weight: bold",
+          "color: #fff",
+          "color: #aaa",
+        );
         for (const line of result.text.split("\n")) {
           console.log(
             `%c│ %c${line}`,
-            "color: #8ab4f8; font-weight: bold",
-            "color: #fff; font-style: italic",
+            "color: #8ab4f8",
+            "color: #ccc; font-style: italic",
           );
         }
         console.log(
           `%c└${"─".repeat(48)}┘`,
           "color: #8ab4f8; font-weight: bold",
         );
+
+        suggestReply(this.history).then((suggestion) => {
+          if (!suggestion) return;
+          console.log(
+            `%c┌${"─".repeat(48)}┐`,
+            "color: #d0a0ff; font-weight: bold",
+          );
+          console.log(
+            `%c│ %cTú %cpodrías decir:`,
+            "color: #d0a0ff; font-weight: bold",
+            "color: #fff",
+            "color: #aaa",
+          );
+          for (const line of suggestion.split("\n")) {
+            console.log(
+              `%c│ %c${line}`,
+              "color: #d0a0ff",
+              "color: #f0c040; font-style: italic",
+            );
+          }
+          console.log(
+            `%c└${"─".repeat(48)}┘`,
+            "color: #d0a0ff; font-weight: bold",
+          );
+        });
       }
 
       synthesize(result.text, this.ttsModel)

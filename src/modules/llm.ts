@@ -118,3 +118,39 @@ export async function chat(
     cacheHits: data.usage?.prompt_cache_hit_tokens ?? 0,
   };
 }
+
+const SUGGEST_PROMPT = `Given the conversation below, suggest a short, natural reply the user could say next. Match the user's tone and language. Return ONLY the suggested reply — no quotes, no prefixes, no explanation.`;
+
+export async function suggestReply(history: Message[]): Promise<string> {
+  if (!apiKey) return "";
+
+  const messages: Message[] = [
+    { role: "system", content: SUGGEST_PROMPT },
+    ...history,
+    { role: "user", content: "[suggest a reply the user could say next]" },
+  ];
+
+  try {
+    const response = await fetch(`${BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages,
+        max_tokens: 128,
+        temperature: 0.9,
+        thinking: { type: "disabled" },
+      }),
+    });
+
+    if (!response.ok) return "";
+
+    const data: DeepSeekResponse = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  } catch {
+    return "";
+  }
+}
