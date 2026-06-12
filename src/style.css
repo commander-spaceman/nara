@@ -17,6 +17,17 @@
   --btn-hover: rgba(255, 255, 255, 0.14);
 }
 
+:root[data-theme="light"] {
+  --bg: rgba(255, 255, 255, 0.004);
+  --panel-bg: rgba(255, 255, 255, 0.88);
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --text: rgba(0, 0, 0, 0.8);
+  --text-dim: rgba(0, 0, 0, 0.35);
+  --accent: rgba(60, 80, 180, 0.85);
+  --btn-bg: rgba(0, 0, 0, 0.05);
+  --btn-hover: rgba(0, 0, 0, 0.1);
+}
+
 html,
 body {
   width: 100%;
