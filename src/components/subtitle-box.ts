@@ -14,16 +14,7 @@ export class SubtitleBox {
   setText(text: string): void {
     const el = this.container.querySelector("#subtitle-text");
     if (!el) return;
-    el.classList.remove("loading");
     el.textContent = text;
-    this.container.classList.add("visible");
-  }
-
-  setLoading(): void {
-    const el = this.container.querySelector("#subtitle-text");
-    if (!el) return;
-    el.classList.add("loading");
-    el.textContent = "";
     this.container.classList.add("visible");
   }
 

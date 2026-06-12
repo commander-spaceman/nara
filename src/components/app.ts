@@ -141,7 +141,7 @@ export class App {
       return;
     }
 
-    this.subtitleBox.setLoading();
+    this.controls.setLoading(true);
 
     try {
       const start = performance.now();
@@ -182,6 +182,7 @@ export class App {
       );
     } catch (err) {
       this.subtitleBox.setText("comms error — try again");
+      this.controls.setLoading(false);
       console.error("LLM error:", err);
     }
   }
@@ -224,6 +225,7 @@ export class App {
       (buffer) => {
         console.log("[TTS] playing", buffer.duration.toFixed(1), "s");
         this.subtitleBox.setText(text);
+        this.controls.setLoading(false);
         const img = this.el("model-area").querySelector(
           ".placeholder-model",
         ) as HTMLElement;

@@ -54,4 +54,11 @@ export class Controls {
     btnChat.classList.toggle("active", mode === "chat");
     this.callbacks.onModeChange(mode);
   }
+
+  setLoading(loading: boolean): void {
+    const btn = this.container.querySelector(
+      this.activeMode === "chat" ? "#btn-chat" : "#btn-mic",
+    );
+    if (btn) btn.classList.toggle("loading", loading);
+  }
 }
