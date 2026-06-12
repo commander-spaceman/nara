@@ -71,10 +71,10 @@ body {
 
 .debug-section {
   flex: 1;
-  padding: 8px 10px 6px;
+  padding: 8px 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 4px;
 }
 
 .debug-section + .debug-section {
@@ -93,10 +93,11 @@ body {
 .debug-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 8px;
   font-size: 10.5px;
   font-family: ui-monospace, Consolas, monospace;
-  line-height: 1.6;
+  line-height: 1.8;
 }
 
 .debug-row span:first-child {
@@ -114,10 +115,13 @@ body {
   color: var(--text);
   font-family: ui-monospace, Consolas, monospace;
   font-size: 10px;
-  padding: 1px 4px;
+  padding: 2px 4px;
   outline: none;
   cursor: pointer;
-  max-width: 120px;
+  width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .debug-select option {
