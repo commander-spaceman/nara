@@ -12,6 +12,7 @@ import {
   listSessions,
   loadSession,
 } from "../modules/memory";
+import { synthesize } from "../modules/tts";
 
 export type InputMode = "chat" | "mic";
 
@@ -108,6 +109,9 @@ export class App {
       saveMessage("user", text).catch(() => {});
       saveMessage("assistant", response).catch(() => {});
       this.debugPanel.update({ memory: `${count} msgs` });
+      synthesize(response)
+        .then((audio) => this.playAudio(audio))
+        .catch((err) => console.error("TTS error:", err));
       console.log(
         `%c[LLM memory]%c ${count} msgs`,
         "color: #d0a0ff; font-weight: bold",
@@ -204,6 +208,24 @@ export class App {
     } catch {
       this.subtitleBox.setText("failed to load session");
     }
+  }
+
+  private playAudio(arrayBuffer: ArrayBuffer): void {
+    const ctx = new AudioContext();
+    ctx.resume();
+    console.log("[TTS] received", arrayBuffer.byteLength, "bytes");
+    ctx.decodeAudioData(
+      arrayBuffer.slice(0),
+      (buffer) => {
+        console.log("[TTS] playing", buffer.duration.toFixed(1), "s");
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start();
+        source.onended = () => ctx.close();
+      },
+      (err) => console.error("[TTS] decode error:", err),
+    );
   }
 
   private el(id: string): HTMLElement {
