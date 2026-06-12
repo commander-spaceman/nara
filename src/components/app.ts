@@ -112,6 +112,10 @@ export class App {
       })
       .catch(() => {});
 
+    setInterval(() => {
+      this.debugPanel.update({ uptime: this.formatUptime() });
+    }, 1000);
+
     window.addEventListener("beforeunload", () => {
       endSession().catch(() => {});
     });
