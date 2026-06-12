@@ -20,6 +20,12 @@ export interface Message {
 
 interface DeepSeekResponse {
   choices: Array<{ message: { content: string } }>;
+  usage?: {
+    total_tokens: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    prompt_cache_hit_tokens: number;
+  };
 }
 
 let apiKey: string | null = null;
@@ -36,10 +42,18 @@ export function getSystemPrompt(): string {
   return SYSTEM_PROMPT;
 }
 
+export interface ChatResult {
+  text: string;
+  tokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  cacheHits: number;
+}
+
 export async function chat(
   userMessage: string,
   history: Message[] = [],
-): Promise<string> {
+): Promise<ChatResult> {
   if (!apiKey) {
     throw new Error("API key not configured");
   }
@@ -96,5 +110,11 @@ export async function chat(
     throw new Error("Empty response from DeepSeek");
   }
 
-  return content;
+  return {
+    text: content,
+    tokens: data.usage?.total_tokens ?? 0,
+    promptTokens: data.usage?.prompt_tokens ?? 0,
+    completionTokens: data.usage?.completion_tokens ?? 0,
+    cacheHits: data.usage?.prompt_cache_hit_tokens ?? 0,
+  };
 }
