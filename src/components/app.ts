@@ -11,6 +11,7 @@ import {
   endSession,
   listSessions,
   loadSession,
+  getSessionId,
 } from "../modules/memory";
 import { synthesize, TTS_MODELS } from "../modules/tts";
 import { STT_MODELS } from "../modules/stt";
@@ -25,6 +26,9 @@ export class App {
   private controls!: Controls;
   private inputBar!: InputBar;
   private history: Message[] = [];
+  private totalInputTokens = 0;
+  private totalOutputTokens = 0;
+  private sessionStart = Date.now();
   private ttsModel: string;
   private sttModel: string;
 
@@ -73,7 +77,13 @@ export class App {
       this.sttModel,
     );
     this.debugPanel.mount();
-    this.debugPanel.update({ memory: "0 msgs" });
+    this.debugPanel.update({
+      sent: "0",
+      received: "0",
+      uptime: this.formatUptime(),
+      sessionId: "-",
+      startedAt: new Date().toTimeString().slice(0, 8),
+    });
 
     this.modelArea = new ModelArea(this.el("model-area"));
     this.modelArea.mount();
@@ -96,7 +106,11 @@ export class App {
     this.controls.mount();
     this.inputBar.mount();
 
-    startSession().catch(() => {});
+    startSession()
+      .then(() => {
+        this.debugPanel.update({ sessionId: getSessionId().slice(0, 10) });
+      })
+      .catch(() => {});
 
     window.addEventListener("beforeunload", () => {
       endSession().catch(() => {});
@@ -122,16 +136,34 @@ export class App {
     this.subtitleBox.setText("...");
 
     try {
-      const response = await chat(text, this.history);
+      const start = performance.now();
+      const result = await chat(text, this.history);
+      const latency = Math.round(performance.now() - start);
+      this.totalInputTokens += result.promptTokens;
+      this.totalOutputTokens += result.completionTokens;
+
       this.history.push({ role: "user", content: text });
-      this.history.push({ role: "assistant", content: response });
+      this.history.push({ role: "assistant", content: result.text });
 
       const count = this.history.length / 2;
       saveMessage("user", text).catch(() => {});
-      saveMessage("assistant", response).catch(() => {});
-      this.debugPanel.update({ memory: `${count} msgs` });
-      synthesize(response, this.ttsModel)
-        .then((audio) => this.playAudio(audio, response))
+      saveMessage("assistant", result.text).catch(() => {});
+      this.debugPanel.update({
+        sent: `${count}`,
+        received: `${count}`,
+        uptime: this.formatUptime(),
+        inputTokens: `${this.totalInputTokens}`,
+        outputTokens: `${this.totalOutputTokens}`,
+        cacheHits: `${result.cacheHits}`,
+        latency: `${latency}ms`,
+      });
+      const ttsStart = performance.now();
+      synthesize(result.text, this.ttsModel)
+        .then((audio) => {
+          const ttsTime = Math.round(performance.now() - ttsStart);
+          this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
+          this.playAudio(audio, result.text);
+        })
         .catch((err) => console.error("TTS error:", err));
       console.log(
         `%c[LLM memory]%c ${count} msgs`,
@@ -225,7 +257,12 @@ export class App {
           "color: #aaa",
         );
       }
-      this.debugPanel.update({ memory: `${msgs.length / 2} msgs` });
+      const c = `${msgs.length / 2}`;
+      this.debugPanel.update({
+        sent: c,
+        received: c,
+        uptime: this.formatUptime(),
+      });
     } catch {
       this.subtitleBox.setText("failed to load session");
     }
@@ -240,6 +277,10 @@ export class App {
       (buffer) => {
         console.log("[TTS] playing", buffer.duration.toFixed(1), "s");
         this.subtitleBox.setText(text);
+        this.debugPanel.update({
+          audioDuration: `${buffer.duration.toFixed(1)}s`,
+          audioSize: `${(arrayBuffer.byteLength / 1024).toFixed(0)}KB`,
+        });
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.connect(ctx.destination);
@@ -248,6 +289,15 @@ export class App {
       },
       (err) => console.error("[TTS] decode error:", err),
     );
+  }
+
+  private formatUptime(): string {
+    const s = Math.floor((Date.now() - this.sessionStart) / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ${s % 60}s`;
+    const h = Math.floor(m / 60);
+    return `${h}h ${m % 60}m`;
   }
 
   private el(id: string): HTMLElement {
