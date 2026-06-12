@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::{Manager, RunEvent, WindowEvent};
 
+mod background;
 mod commands;
 mod db;
 
@@ -57,6 +58,8 @@ pub fn run() {
                     let _ = webview.open_devtools();
                 }
             }
+
+            background::detect_background(app.handle().clone());
 
             Ok(())
         })
