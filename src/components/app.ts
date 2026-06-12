@@ -224,6 +224,13 @@ export class App {
       (buffer) => {
         console.log("[TTS] playing", buffer.duration.toFixed(1), "s");
         this.subtitleBox.setText(text);
+        const img = this.el("model-area").querySelector(
+          ".placeholder-model",
+        ) as HTMLElement;
+        if (img) {
+          img.style.setProperty("--talk-duration", `${buffer.duration / 32}s`);
+          img.classList.add("talking");
+        }
         this.debugPanel.update({
           audioDuration: `${buffer.duration.toFixed(1)}s`,
           audioSize: `${(arrayBuffer.byteLength / 1024).toFixed(0)}KB`,
@@ -232,7 +239,10 @@ export class App {
         source.buffer = buffer;
         source.connect(ctx.destination);
         source.start();
-        source.onended = () => ctx.close();
+        source.onended = () => {
+          if (img) img.classList.remove("talking");
+          ctx.close();
+        };
       },
       (err) => console.error("[TTS] decode error:", err),
     );

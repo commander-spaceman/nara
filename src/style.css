@@ -145,6 +145,19 @@ body {
   opacity: 0.85;
 }
 
+.placeholder-model.talking {
+  animation: tilt var(--talk-duration, 3s) ease-in-out infinite alternate;
+}
+
+@keyframes tilt {
+  0% {
+    transform: rotate(-10deg);
+  }
+  100% {
+    transform: rotate(10deg);
+  }
+}
+
 /* ---- subtitle box ---- */
 #bottom-section {
   flex-shrink: 0;
