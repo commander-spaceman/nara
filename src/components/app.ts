@@ -177,10 +177,10 @@ export class App {
 
       const ttsStart = performance.now();
       synthesize(result.text, this.ttsModel)
-        .then((audio) => {
+        .then(async (audio) => {
           const ttsTime = Math.round(performance.now() - ttsStart);
           this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
-          this.playAudio(audio, result.text);
+          await this.playAudio(audio, result.text);
         })
         .catch((err) => {
           this.controls.setLoading(false);
@@ -228,9 +228,12 @@ export class App {
     });
   }
 
-  private playAudio(arrayBuffer: ArrayBuffer, text: string): void {
+  private async playAudio(
+    arrayBuffer: ArrayBuffer,
+    text: string,
+  ): Promise<void> {
     const ctx = new AudioContext();
-    ctx.resume();
+    await ctx.resume();
     console.log("[TTS] received", arrayBuffer.byteLength, "bytes");
     ctx.decodeAudioData(
       arrayBuffer.slice(0),
@@ -259,7 +262,10 @@ export class App {
           ctx.close();
         };
       },
-      (err) => console.error("[TTS] decode error:", err),
+      (err) => {
+        console.error("[TTS] decode error:", err);
+        this.controls.setLoading(false);
+      },
     );
   }
 
