@@ -9,11 +9,11 @@ export interface HelmetFXParams {
 }
 
 export const HELMET_DEFAULTS: HelmetFXParams = {
-  pitch_semitones: 2,
-  dry_gain: 0.8,
-  wet_gain: 0.35,
+  pitch_semitones: 1,
+  dry_gain: 0.25,
+  wet_gain: 0.15,
   hpf: 200,
-  lpf: 4000,
-  notch: 900,
-  drive: 0.1,
+  lpf: 7000,
+  notch: 1000,
+  drive: 0.05,
 };

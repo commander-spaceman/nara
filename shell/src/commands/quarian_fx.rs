@@ -16,13 +16,13 @@ pub struct FxParams {
 impl Default for FxParams {
     fn default() -> Self {
         Self {
-            pitch_semitones: 2.0,
-            dry_gain: 0.80,
-            wet_gain: 0.35,
+            pitch_semitones: 1.0,
+            dry_gain: 0.25,
+            wet_gain: 0.15,
             hpf: 200.0,
-            lpf: 4000.0,
-            notch: 900.0,
-            drive: 0.10,
+            lpf: 7000.0,
+            notch: 1000.0,
+            drive: 0.05,
         }
     }
 }
