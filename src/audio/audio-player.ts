@@ -33,25 +33,38 @@ export class AudioPlayer {
 
     try {
       const wav = new Uint8Array(arrayBuffer);
+      const t0 = performance.now();
+      console.log(
+        `%c[FX]%c → %c+${this.fxParams.pitch_semitones}st %cdry:%c${this.fxParams.dry_gain.toFixed(2)} %cwet:%c${this.fxParams.wet_gain.toFixed(2)}`,
+        "color: #5fdb90; font-weight: bold",
+        "color: #888",
+        "color: #d0a0ff",
+        "color: #888",
+        "color: #8ab4f8",
+        "color: #888",
+        "color: #f0c040",
+      );
       const result = await invoke<number[]>("quarian_fx", {
         wav: Array.from(wav),
         params: this.fxParams,
       });
+      const ms = (performance.now() - t0).toFixed(0);
       processed = new Uint8Array(result).buffer as ArrayBuffer;
       console.log(
-        "[FX] librosa processed | pitch: +" +
-          this.fxParams.pitch_semitones +
-          " dry:" +
-          this.fxParams.dry_gain.toFixed(2) +
-          " wet:" +
-          this.fxParams.wet_gain.toFixed(2) +
-          " hpf:" +
-          this.fxParams.hpf +
-          " lpf:" +
-          this.fxParams.lpf,
+        `%c[FX]%c ← %c${ms}ms %c${(processed.byteLength / 1024).toFixed(0)}KB`,
+        "color: #5fdb90; font-weight: bold",
+        "color: #888",
+        "color: #5fdb90",
+        "color: #aaa",
       );
     } catch (err) {
-      console.error("[FX] librosa failed, using raw audio:", err);
+      console.error(
+        `%c[FX]%c ✗ %cfallback to raw`,
+        "color: #e04444; font-weight: bold",
+        "color: #888",
+        "color: #e04444",
+        err,
+      );
       processed = arrayBuffer;
     }
 

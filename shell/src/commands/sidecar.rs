@@ -16,6 +16,19 @@ fn python_bin() -> PathBuf {
     PathBuf::from("python")
 }
 
+fn sidecar_bin() -> (Command, Option<PathBuf>) {
+    let pid = std::process::id();
+    let dir = std::env::temp_dir();
+    let script_path = dir.join(format!("nara_sidecar_{pid}.py"));
+    std::fs::write(&script_path, SCRIPT)
+        .map_err(|e| log::warn!("sidecar: write script failed: {e}"))
+        .ok();
+    log::info!("sidecar: using Python + script");
+    let mut cmd = Command::new(python_bin());
+    cmd.arg(&script_path);
+    (cmd, Some(script_path))
+}
+
 pub struct Sidecar {
     stdin: Mutex<ChildStdin>,
     stdout: Mutex<BufReader<ChildStdout>>,
@@ -24,13 +37,9 @@ pub struct Sidecar {
 
 impl Sidecar {
     pub fn start() -> Result<Self, String> {
-        let pid = std::process::id();
-        let dir = std::env::temp_dir();
-        let script_path = dir.join(format!("nara_sidecar_{pid}.py"));
-        std::fs::write(&script_path, SCRIPT).map_err(|e| format!("write sidecar script: {e}"))?;
+        let (mut cmd, script_file) = sidecar_bin();
 
-        let mut child = Command::new(python_bin())
-            .arg(&script_path)
+        let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -47,7 +56,9 @@ impl Sidecar {
             .read_line(&mut ready_line)
             .map_err(|e| format!("read ready: {e}"))?;
 
-        let _ = std::fs::remove_file(&script_path);
+        if let Some(f) = script_file {
+            let _ = std::fs::remove_file(f);
+        }
 
         if !ready_line.contains("\"ready\"") {
             let mut stderr_reader = BufReader::new(stderr);
@@ -59,6 +70,8 @@ impl Sidecar {
             ));
         }
 
+        log::info!("sidecar started");
+
         Ok(Self {
             stdin: Mutex::new(stdin),
             stdout: Mutex::new(stdout_reader),
@@ -68,6 +81,7 @@ impl Sidecar {
 
     pub fn process(&self, wav: &[u8], params: &FxParams) -> Result<Vec<u8>, String> {
         let cmd = serde_json::json!({"size": wav.len(), "params": params}).to_string() + "\n";
+        log::info!("sidecar: processing {} bytes", wav.len());
 
         {
             let mut stdin = self.stdin.lock().map_err(|e| format!("lock stdin: {e}"))?;
@@ -92,7 +106,7 @@ impl Sidecar {
         }
 
         let parsed: serde_json::Value =
-            serde_json::from_str(&response).map_err(|e| format!("parse response: {e}"))?;
+            serde_json::from_str(&response).map_err(|e| format!("parse: {e}"))?;
 
         match parsed["status"].as_str() {
             Some("ok") => {
