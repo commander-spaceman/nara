@@ -121,6 +121,15 @@ export class App {
       this.debugPanel.update({ uptime: this.formatUptime() });
     }, 1000);
 
+    document.addEventListener("keydown", (e) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "e" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        this.controls.toggleInput();
+      }
+    });
+
     window.addEventListener("beforeunload", () => {
       endSession().catch(() => {});
     });

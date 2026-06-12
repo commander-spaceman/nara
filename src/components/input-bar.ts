@@ -45,6 +45,10 @@ export class InputBar {
         "#chat-input",
       ) as HTMLInputElement;
       input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          input.blur();
+          return;
+        }
         if (e.key === "Enter" && input.value.trim()) {
           const text = input.value.trim();
           input.value = "";

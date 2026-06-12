@@ -8,6 +8,7 @@ export class Controls {
   private container: HTMLElement;
   private callbacks: ControlsCallbacks;
   private activeMode: InputMode | null = null;
+  private lastMode: InputMode = "chat";
 
   constructor(container: HTMLElement, callbacks: ControlsCallbacks) {
     this.container = container;
@@ -51,6 +52,7 @@ export class Controls {
       this.activeMode = null;
     } else {
       this.activeMode = mode;
+      this.lastMode = mode;
     }
     const btnMic = this.container.querySelector("#btn-mic")!;
     const btnChat = this.container.querySelector("#btn-chat")!;
@@ -65,5 +67,13 @@ export class Controls {
       this.activeMode === "chat" ? "#btn-chat" : "#btn-mic",
     );
     if (btn) btn.classList.toggle("loading", loading);
+  }
+
+  toggleInput(): void {
+    if (this.activeMode) {
+      this.toggleMode(this.activeMode);
+    } else {
+      this.toggleMode(this.lastMode);
+    }
   }
 }
