@@ -29,7 +29,7 @@ interface DebugPanelCallbacks {
 export class DebugPanel {
   private container: HTMLElement;
   private data: DebugData;
-  private visibility: "hidden" | "expanded" | "out" = "out";
+  private visibility: "expanded" | "out" = "out";
   private ttsModels: ModelOption[];
   private sttModels: ModelOption[];
   private callbacks: DebugPanelCallbacks;
@@ -78,25 +78,18 @@ export class DebugPanel {
   }
 
   toggle(): void {
-    if (this.visibility === "hidden") {
+    if (this.visibility === "out") {
       this.visibility = "expanded";
       console.log(
         "%c[debug]%c active",
         "color: #5fdb90; font-weight: bold",
         "color: #ccc",
       );
-    } else if (this.visibility === "expanded") {
+    } else {
       this.visibility = "out";
       console.log(
-        "%c[debug]%c out of view",
-        "color: #e04444; font-weight: bold",
-        "color: #ccc",
-      );
-    } else {
-      this.visibility = "hidden";
-      console.log(
         "%c[debug]%c hidden",
-        "color: #f0c040; font-weight: bold",
+        "color: #e04444; font-weight: bold",
         "color: #ccc",
       );
     }
@@ -156,10 +149,7 @@ export class DebugPanel {
       return;
     }
 
-    this.container.innerHTML =
-      this.visibility === "hidden"
-        ? '<div class="debug-collapsed">debug (d)</div>'
-        : `
+    this.container.innerHTML = `
         <div class="debug-section">
           <div class="debug-section-title">status</div>
           <div class="debug-row"><span>llm</span><span>${d.llmModel.split("-").slice(0, 2).join("-")}</span></div>
