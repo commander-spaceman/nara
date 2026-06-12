@@ -1,19 +1,29 @@
 const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
 
-export async function transcribe(audioBlob: Blob): Promise<string> {
+export const STT_MODELS = [
+  { id: "gpt-4o-mini-transcribe", label: "gpt-4o-mini-transcribe" },
+  { id: "gpt-4o-transcribe", label: "gpt-4o-transcribe" },
+  { id: "whisper-1", label: "whisper-1" },
+];
+
+export async function transcribe(
+  audioBlob: Blob,
+  model = "gpt-4o-mini-transcribe",
+): Promise<string> {
   if (!API_KEY) {
     throw new Error("VITE_OPENAI_API_KEY not set");
   }
 
   const formData = new FormData();
   formData.append("file", audioBlob, "audio.webm");
-  formData.append("model", "gpt-4o-mini-transcribe");
+  formData.append("model", model);
 
   console.log(
-    `%cSTT %c→ %c${(audioBlob.size / 1024).toFixed(0)}KB audio`,
+    `%cSTT %c→ %c${(audioBlob.size / 1024).toFixed(0)}KB %c${model}`,
     "color: #f0c040; font-weight: bold",
     "color: #aaa",
     "color: #f0c040",
+    "color: #aaa",
   );
 
   const response = await fetch(

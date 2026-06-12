@@ -1,12 +1,21 @@
 const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
 
-export async function synthesize(text: string): Promise<ArrayBuffer> {
+export const TTS_MODELS = [
+  { id: "gpt-4o-mini-tts", label: "gpt-4o-mini-tts" },
+  { id: "tts-1", label: "tts-1" },
+  { id: "tts-1-hd", label: "tts-1-hd" },
+];
+
+export async function synthesize(
+  text: string,
+  model = "gpt-4o-mini-tts",
+): Promise<ArrayBuffer> {
   if (!API_KEY) {
     throw new Error("VITE_OPENAI_API_KEY not set");
   }
 
   console.log(
-    `%cTTS %c→ %c${text.slice(0, 60)}`,
+    `%cTTS %c→ %c${model}`,
     "color: #5fdb90; font-weight: bold",
     "color: #aaa",
     "color: #ccc",
@@ -19,7 +28,7 @@ export async function synthesize(text: string): Promise<ArrayBuffer> {
       Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
+      model,
       voice: "nova",
       input: text,
       response_format: "wav",
