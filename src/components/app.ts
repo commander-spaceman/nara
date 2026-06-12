@@ -4,6 +4,7 @@ import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
 import { SessionModal } from "./session-modal";
+import { AudioPlayer } from "./audio-player";
 import { chat, setApiKey, getApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
 import {
@@ -25,6 +26,7 @@ export class App {
   private controls!: Controls;
   private inputBar!: InputBar;
   private sessionModal!: SessionModal;
+  private audioPlayer!: AudioPlayer;
   private history: Message[] = [];
   private totalInputTokens = 0;
   private totalOutputTokens = 0;
@@ -98,6 +100,13 @@ export class App {
       onSessionLoad: (msgs) => this.onSessionLoaded(msgs),
     });
     this.sessionModal.mount();
+
+    this.audioPlayer = new AudioPlayer(
+      this.el("model-area"),
+      this.subtitleBox,
+      this.debugPanel,
+      this.controls,
+    );
 
     this.inputBar = new InputBar(this.el("input-bar"), {
       onSubmit: (text: string) => this.handleSubmit(text),
@@ -180,7 +189,7 @@ export class App {
         .then(async (audio) => {
           const ttsTime = Math.round(performance.now() - ttsStart);
           this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
-          await this.playAudio(audio, result.text);
+          await this.audioPlayer.play(audio, result.text);
         })
         .catch((err) => {
           this.controls.setLoading(false);
@@ -226,47 +235,6 @@ export class App {
       received: c,
       uptime: this.formatUptime(),
     });
-  }
-
-  private async playAudio(
-    arrayBuffer: ArrayBuffer,
-    text: string,
-  ): Promise<void> {
-    const ctx = new AudioContext();
-    await ctx.resume();
-    console.log("[TTS] received", arrayBuffer.byteLength, "bytes");
-    ctx.decodeAudioData(
-      arrayBuffer.slice(0),
-      (buffer) => {
-        console.log("[TTS] playing", buffer.duration.toFixed(1), "s");
-        this.subtitleBox.setText(text);
-        this.controls.setLoading(false);
-        const img = this.el("model-area").querySelector(
-          ".placeholder-model",
-        ) as HTMLElement;
-        if (img) {
-          img.style.setProperty("--talk-duration", `${buffer.duration / 32}s`);
-          img.classList.add("talking");
-        }
-        this.debugPanel.update({
-          audioDuration: `${buffer.duration.toFixed(1)}s`,
-          audioSize: `${(arrayBuffer.byteLength / 1024).toFixed(0)}KB`,
-        });
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start();
-        source.onended = () => {
-          if (img) img.classList.remove("talking");
-          this.subtitleBox.clear();
-          ctx.close();
-        };
-      },
-      (err) => {
-        console.error("[TTS] decode error:", err);
-        this.controls.setLoading(false);
-      },
-    );
   }
 
   private formatUptime(): string {
