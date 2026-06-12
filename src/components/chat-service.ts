@@ -5,7 +5,7 @@ import { synthesize } from "../modules/tts";
 import { SubtitleBox } from "./subtitle-box";
 import { DebugPanel } from "./debug-panel";
 import { Controls } from "./controls";
-import { AudioPlayer } from "./audio-player";
+import { AudioPlayer } from "../audio/audio-player";
 
 export class ChatService {
   private subtitleBox: SubtitleBox;

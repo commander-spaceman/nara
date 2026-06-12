@@ -27,3 +27,6 @@ dist-ssr
 .opencode/
 opencode.jsonc
 internal/
+.venv/
+
+__pycache__/

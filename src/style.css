@@ -61,11 +61,16 @@ body {
 
 #debug-panel:has(.debug-section) {
   display: flex;
+  flex-direction: column;
   gap: 0;
   border-radius: 10px;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   overflow: hidden;
+}
+
+.debug-top {
+  display: flex;
 }
 
 .debug-collapsed {
@@ -88,8 +93,13 @@ body {
   gap: 4px;
 }
 
-.debug-section + .debug-section {
+.debug-top .debug-section + .debug-section {
   border-left: 1px solid var(--panel-border);
+}
+
+.debug-section--bottom {
+  border-top: 1px solid var(--panel-border);
+  padding: 8px 10px 10px;
 }
 
 .debug-section-title {
@@ -99,6 +109,30 @@ body {
   color: var(--text-dim);
   margin-bottom: 4px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.debug-reset-btn {
+  background: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1px 5px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.debug-reset-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .debug-row {
@@ -138,6 +172,45 @@ body {
 .debug-select option {
   background: var(--panel-bg);
   color: var(--text);
+}
+
+.debug-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  cursor: pointer;
+}
+
+.debug-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.debug-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.debug-value {
+  font-size: 9px;
+  color: var(--accent);
+  min-width: 28px;
+  text-align: right;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* ---- model area ---- */

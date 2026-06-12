@@ -4,7 +4,7 @@ import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
 import { SessionModal } from "./session-modal";
-import { AudioPlayer } from "./audio-player";
+import { AudioPlayer } from "../audio/audio-player";
 import { ChatService } from "./chat-service";
 import { setApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
@@ -68,6 +68,9 @@ export class App {
         onSttModelChange: (model) => {
           this.sttModel = model;
           localStorage.setItem("nara_stt_model", model);
+        },
+        onVocoderChange: (params) => {
+          this.audioPlayer.setFXParams(params);
         },
       },
       TTS_MODELS,
