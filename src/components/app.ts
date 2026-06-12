@@ -141,7 +141,7 @@ export class App {
       return;
     }
 
-    this.subtitleBox.setText("...");
+    this.subtitleBox.setLoading();
 
     try {
       const start = performance.now();
