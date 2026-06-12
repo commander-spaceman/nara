@@ -14,10 +14,14 @@ export class InputBar {
   }
 
   mount(): void {
-    this.render("chat");
+    this.container.innerHTML = "";
   }
 
-  setMode(mode: InputMode): void {
+  setMode(mode: InputMode | null): void {
+    if (!mode) {
+      this.container.innerHTML = "";
+      return;
+    }
     this.render(mode);
   }
 

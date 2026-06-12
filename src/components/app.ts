@@ -104,7 +104,7 @@ export class App {
     });
 
     this.controls = new Controls(this.el("controls"), {
-      onModeChange: (mode: InputMode) => {
+      onModeChange: (mode) => {
         this.inputBar.setMode(mode);
       },
     });
