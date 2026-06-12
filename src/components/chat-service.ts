@@ -73,26 +73,11 @@ export class ChatService {
       if (import.meta.env.DEV) {
         suggestReply(this.history).then((suggestion) => {
           if (!suggestion) return;
+          const clean = suggestion.replace(/\n/g, " ");
           console.log(
-            `%c┌${"─".repeat(48)}┐`,
+            `%cReply:%c ${clean}`,
             "color: #d0a0ff; font-weight: bold",
-          );
-          console.log(
-            `%c│ %cTú %cpodrías decir:`,
-            "color: #d0a0ff; font-weight: bold",
-            "color: #fff",
-            "color: #aaa",
-          );
-          for (const line of suggestion.split("\n")) {
-            console.log(
-              `%c│ %c${line}`,
-              "color: #d0a0ff",
-              "color: #f0c040; font-style: italic",
-            );
-          }
-          console.log(
-            `%c└${"─".repeat(48)}┘`,
-            "color: #d0a0ff; font-weight: bold",
+            "color: #f0c040; font-style: italic",
           );
         });
       }
