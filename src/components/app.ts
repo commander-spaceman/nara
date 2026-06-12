@@ -5,15 +5,11 @@ import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
 import { SessionModal } from "./session-modal";
 import { AudioPlayer } from "./audio-player";
-import { chat, setApiKey, getApiKey } from "../modules/llm";
+import { ChatService } from "./chat-service";
+import { setApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
-import {
-  startSession,
-  saveMessage,
-  endSession,
-  getSessionId,
-} from "../modules/memory";
-import { synthesize, TTS_MODELS } from "../modules/tts";
+import { startSession, endSession, getSessionId } from "../modules/memory";
+import { TTS_MODELS } from "../modules/tts";
 import { STT_MODELS } from "../modules/stt";
 
 export type InputMode = "chat" | "mic";
@@ -27,6 +23,7 @@ export class App {
   private inputBar!: InputBar;
   private sessionModal!: SessionModal;
   private audioPlayer!: AudioPlayer;
+  private chatService!: ChatService;
   private history: Message[] = [];
   private totalInputTokens = 0;
   private totalOutputTokens = 0;
@@ -96,11 +93,6 @@ export class App {
       this.subtitleBox.setText("VITE_DEEPSEEK_API_KEY not set in .env");
     }
 
-    this.sessionModal = new SessionModal(this.el("modal-overlay"), {
-      onSessionLoad: (msgs) => this.onSessionLoaded(msgs),
-    });
-    this.sessionModal.mount();
-
     this.audioPlayer = new AudioPlayer(
       this.el("model-area"),
       this.subtitleBox,
@@ -108,8 +100,24 @@ export class App {
       this.controls,
     );
 
+    this.chatService = new ChatService(
+      this.subtitleBox,
+      this.debugPanel,
+      this.controls,
+      this.audioPlayer,
+      this.history,
+      this.totalInputTokens,
+      this.totalOutputTokens,
+      this.ttsModel,
+    );
+
+    this.sessionModal = new SessionModal(this.el("modal-overlay"), {
+      onSessionLoad: (msgs) => this.chatService.loadSession(msgs),
+    });
+    this.sessionModal.mount();
+
     this.inputBar = new InputBar(this.el("input-bar"), {
-      onSubmit: (text: string) => this.handleSubmit(text),
+      onSubmit: (text) => this.handleSubmit(text),
     });
 
     this.controls = new Controls(this.el("controls"), {
@@ -144,7 +152,7 @@ export class App {
     });
   }
 
-  private async handleSubmit(text: string): Promise<void> {
+  private handleSubmit(text: string): void {
     if (text === "/history" || text === "/sessions") {
       this.sessionModal.show();
       return;
@@ -153,88 +161,7 @@ export class App {
       this.subtitleBox.setText("use /history to browse sessions");
       return;
     }
-
-    if (!getApiKey()) {
-      this.subtitleBox.setText("api key not configured — check .env");
-      return;
-    }
-
-    this.controls.setLoading(true);
-
-    try {
-      const start = performance.now();
-      const result = await chat(text, this.history);
-      const latency = Math.round(performance.now() - start);
-      this.totalInputTokens += result.promptTokens;
-      this.totalOutputTokens += result.completionTokens;
-
-      this.history.push({ role: "user", content: text });
-      this.history.push({ role: "assistant", content: result.text });
-
-      const count = this.history.length / 2;
-      saveMessage("user", text).catch(() => {});
-      saveMessage("assistant", result.text).catch(() => {});
-      this.debugPanel.update({
-        sent: `${count}`,
-        received: `${count}`,
-        uptime: this.formatUptime(),
-        inputTokens: `${this.totalInputTokens}`,
-        outputTokens: `${this.totalOutputTokens}`,
-        cacheHits: `${result.cacheHits}`,
-        latency: `${latency}ms`,
-      });
-
-      const ttsStart = performance.now();
-      synthesize(result.text, this.ttsModel)
-        .then(async (audio) => {
-          const ttsTime = Math.round(performance.now() - ttsStart);
-          this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
-          await this.audioPlayer.play(audio, result.text);
-        })
-        .catch((err) => {
-          this.controls.setLoading(false);
-          console.error("TTS error:", err);
-        });
-
-      console.log(
-        `%c[LLM memory]%c ${count} msgs`,
-        "color: #d0a0ff; font-weight: bold",
-        "color: #aaa",
-      );
-    } catch (err) {
-      this.subtitleBox.setText("comms error — try again");
-      this.controls.setLoading(false);
-      console.error("LLM error:", err);
-    }
-  }
-
-  private onSessionLoaded(msgs: Message[]): void {
-    this.history = msgs;
-    const id = getSessionId().slice(0, 10);
-    this.subtitleBox.setText(`[${msgs.length} msgs loaded from session ${id}]`);
-    console.log(
-      `%c[session]%c ${id} %cloaded %c${msgs.length} msgs`,
-      "color: #f0c040; font-weight: bold",
-      "color: #8ab4f8",
-      "color: #aaa",
-      "color: #5fdb90; font-weight: bold",
-    );
-    const recent = msgs.slice(-10);
-    for (const m of recent) {
-      const label = m.role === "user" ? "user: " : "assistant: ";
-      const color = m.role === "user" ? "#f0c040" : "#8ab4f8";
-      console.log(
-        `  %c${label}%c${m.content.slice(0, 100)}`,
-        `color: ${color}`,
-        "color: #aaa",
-      );
-    }
-    const c = `${msgs.length / 2}`;
-    this.debugPanel.update({
-      sent: c,
-      received: c,
-      uptime: this.formatUptime(),
-    });
+    this.chatService.submit(text);
   }
 
   private formatUptime(): string {

@@ -44,7 +44,8 @@ describe("Components & Layout", () => {
       "SubtitleBox",
       "Controls",
       "InputBar",
-      "saveMessage",
+      "ChatService",
+      "AudioPlayer",
       "startSession",
     ];
     for (const name of imports) {
