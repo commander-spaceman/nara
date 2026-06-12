@@ -3,14 +3,13 @@ import { ModelArea } from "./model-area";
 import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
+import { SessionModal } from "./session-modal";
 import { chat, setApiKey, getApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
 import {
   startSession,
   saveMessage,
   endSession,
-  listSessions,
-  loadSession,
   getSessionId,
 } from "../modules/memory";
 import { synthesize, TTS_MODELS } from "../modules/tts";
@@ -25,6 +24,7 @@ export class App {
   private subtitleBox!: SubtitleBox;
   private controls!: Controls;
   private inputBar!: InputBar;
+  private sessionModal!: SessionModal;
   private history: Message[] = [];
   private totalInputTokens = 0;
   private totalOutputTokens = 0;
@@ -94,6 +94,11 @@ export class App {
       apiKey ? "ready" : "VITE_DEEPSEEK_API_KEY not set in .env",
     );
 
+    this.sessionModal = new SessionModal(this.el("modal-overlay"), {
+      onSessionLoad: (msgs) => this.onSessionLoaded(msgs),
+    });
+    this.sessionModal.mount();
+
     this.inputBar = new InputBar(this.el("input-bar"), {
       onSubmit: (text: string) => this.handleSubmit(text),
     });
@@ -123,12 +128,11 @@ export class App {
 
   private async handleSubmit(text: string): Promise<void> {
     if (text === "/history" || text === "/sessions") {
-      await this.showSessionList();
+      this.sessionModal.show();
       return;
     }
     if (text.startsWith("/history ") || text.startsWith("/sessions ")) {
-      const id = text.split(" ")[1];
-      await this.loadSessionIntoContext(id);
+      this.subtitleBox.setText("use /history to browse sessions");
       return;
     }
 
@@ -161,6 +165,7 @@ export class App {
         cacheHits: `${result.cacheHits}`,
         latency: `${latency}ms`,
       });
+
       const ttsStart = performance.now();
       synthesize(result.text, this.ttsModel)
         .then((audio) => {
@@ -169,6 +174,7 @@ export class App {
           this.playAudio(audio, result.text);
         })
         .catch((err) => console.error("TTS error:", err));
+
       console.log(
         `%c[LLM memory]%c ${count} msgs`,
         "color: #d0a0ff; font-weight: bold",
@@ -180,96 +186,33 @@ export class App {
     }
   }
 
-  private async showSessionList(): Promise<void> {
-    try {
-      const sessions = await listSessions(0);
-      const content = this.el("modal-content");
-      const overlay = this.el("modal-overlay");
-
-      if (sessions.length === 0) {
-        content.innerHTML =
-          '<div style="color:var(--text-dim);text-align:center;padding:16px">no past sessions</div>';
-      } else {
-        content.innerHTML = sessions
-          .map((s) => {
-            const d = new Date(s.started_at * 1000).toLocaleString();
-            return `
-            <div class="modal-session" data-session-id="${s.id}">
-              <span class="modal-session-id">${s.id.slice(0, 10)}</span>
-              <span class="modal-session-date">${d}</span>
-              <span class="modal-session-count">${s.msg_count} msgs</span>
-            </div>`;
-          })
-          .join("");
-
-        content.querySelectorAll(".modal-session").forEach((el) => {
-          el.addEventListener("click", () => {
-            const id = (el as HTMLElement).dataset.sessionId!;
-            this.loadSessionIntoContext(id);
-            overlay.classList.add("hidden");
-          });
-        });
-      }
-
-      overlay.classList.remove("hidden");
-
-      const close = this.el("modal-close");
-      close.onclick = () => overlay.classList.add("hidden");
-      overlay.onclick = (e) => {
-        if (e.target === overlay) overlay.classList.add("hidden");
-      };
-      document.addEventListener(
-        "keydown",
-        (e) => {
-          if (e.key === "Escape") overlay.classList.add("hidden");
-        },
-        { once: true },
-      );
-    } catch {
-      this.subtitleBox.setText("failed to load sessions");
-    }
-  }
-
-  private async loadSessionIntoContext(id: string): Promise<void> {
-    try {
-      const msgs = await loadSession(id);
-      if (msgs.length === 0) {
-        this.subtitleBox.setText("session not found or empty");
-        return;
-      }
-      this.history = msgs.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-      this.subtitleBox.setText(
-        `[${msgs.length} msgs loaded from session ${id.slice(0, 10)}]`,
-      );
+  private onSessionLoaded(msgs: Message[]): void {
+    this.history = msgs;
+    const id = getSessionId().slice(0, 10);
+    this.subtitleBox.setText(`[${msgs.length} msgs loaded from session ${id}]`);
+    console.log(
+      `%c[session]%c ${id} %cloaded %c${msgs.length} msgs`,
+      "color: #f0c040; font-weight: bold",
+      "color: #8ab4f8",
+      "color: #aaa",
+      "color: #5fdb90; font-weight: bold",
+    );
+    const recent = msgs.slice(-10);
+    for (const m of recent) {
+      const label = m.role === "user" ? "user: " : "assistant: ";
+      const color = m.role === "user" ? "#f0c040" : "#8ab4f8";
       console.log(
-        `%c[session]%c ${id.slice(0, 10)} %cloaded %c${msgs.length} msgs`,
-        "color: #f0c040; font-weight: bold",
-        "color: #8ab4f8",
+        `  %c${label}%c${m.content.slice(0, 100)}`,
+        `color: ${color}`,
         "color: #aaa",
-        "color: #5fdb90; font-weight: bold",
       );
-      const recent = msgs.slice(-10);
-      for (const m of recent) {
-        const label = m.role === "user" ? "user: " : "assistant: ";
-        const color = m.role === "user" ? "#f0c040" : "#8ab4f8";
-        console.log(
-          `  %c${label}%c${m.content.slice(0, 100)}`,
-          `color: ${color}`,
-          "color: #aaa",
-        );
-      }
-      const c = `${msgs.length / 2}`;
-      this.debugPanel.update({
-        sent: c,
-        received: c,
-        uptime: this.formatUptime(),
-      });
-    } catch {
-      this.subtitleBox.setText("failed to load session");
     }
+    const c = `${msgs.length / 2}`;
+    this.debugPanel.update({
+      sent: c,
+      received: c,
+      uptime: this.formatUptime(),
+    });
   }
 
   private playAudio(arrayBuffer: ArrayBuffer, text: string): void {
