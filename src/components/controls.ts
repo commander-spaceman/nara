@@ -66,7 +66,10 @@ export class Controls {
     const btn = this.container.querySelector(
       this.activeMode === "chat" ? "#btn-chat" : "#btn-mic",
     );
-    if (btn) btn.classList.toggle("loading", loading);
+    if (btn) {
+      console.log(`[controls] loading=${loading}, mode=${this.activeMode}`);
+      btn.classList.toggle("loading", loading);
+    }
   }
 
   toggleInput(): void {
