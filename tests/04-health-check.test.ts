@@ -21,8 +21,8 @@ describe("Health Check IPC", () => {
       execSync("cargo check", {
         cwd: shellDir,
         stdio: "pipe",
-        timeout: 120000,
+        timeout: 60000,
       });
     }).not.toThrow();
-  });
+  }, 70000);
 });
