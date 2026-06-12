@@ -52,6 +52,12 @@ pub fn run() {
             database.close_previous_session().ok();
             app.manage(database);
 
+            if cfg!(debug_assertions) {
+                if let Some(webview) = app.get_webview_window("main") {
+                    let _ = webview.open_devtools();
+                }
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
