@@ -19,13 +19,13 @@
 
 :root[data-theme="light"] {
   --bg: rgba(255, 255, 255, 0.004);
-  --panel-bg: rgba(255, 255, 255, 0.88);
-  --panel-border: rgba(0, 0, 0, 0.08);
-  --text: rgba(0, 0, 0, 0.8);
-  --text-dim: rgba(0, 0, 0, 0.35);
-  --accent: rgba(60, 80, 180, 0.85);
-  --btn-bg: rgba(0, 0, 0, 0.05);
-  --btn-hover: rgba(0, 0, 0, 0.1);
+  --panel-bg: rgba(240, 240, 245, 0.92);
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --text: rgba(0, 0, 0, 0.85);
+  --text-dim: rgba(0, 0, 0, 0.55);
+  --accent: rgba(50, 70, 170, 0.85);
+  --btn-bg: rgba(0, 0, 0, 0.06);
+  --btn-hover: rgba(0, 0, 0, 0.12);
 }
 
 html,
@@ -285,7 +285,7 @@ body {
 
 .ctrl-label {
   font-size: 9px;
-  color: var(--text-dim);
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
