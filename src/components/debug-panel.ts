@@ -14,15 +14,40 @@ interface DebugData {
   dryWet: string;
   fxActive: string;
   output: string;
+  ttsModel: string;
+  sttModel: string;
+}
+
+interface ModelOption {
+  id: string;
+  label: string;
+}
+
+interface DebugPanelCallbacks {
+  onTtsModelChange: (model: string) => void;
+  onSttModelChange: (model: string) => void;
 }
 
 export class DebugPanel {
   private container: HTMLElement;
   private data: DebugData;
   private collapsed = false;
+  private ttsModels: ModelOption[];
+  private sttModels: ModelOption[];
+  private callbacks: DebugPanelCallbacks;
 
-  constructor(container: HTMLElement) {
+  constructor(
+    container: HTMLElement,
+    callbacks: DebugPanelCallbacks,
+    ttsModels: ModelOption[],
+    sttModels: ModelOption[],
+    initialTtsModel: string,
+    initialSttModel: string,
+  ) {
     this.container = container;
+    this.callbacks = callbacks;
+    this.ttsModels = ttsModels;
+    this.sttModels = sttModels;
     this.data = {
       health: "ok",
       state: "active",
@@ -39,22 +64,27 @@ export class DebugPanel {
       dryWet: "70% / 20%",
       fxActive: "yes",
       output: "speakers",
+      ttsModel: initialTtsModel,
+      sttModel: initialSttModel,
     };
   }
 
   mount(): void {
     this.render();
     document.addEventListener("keydown", this.onKeyDown);
+    this.bindEvents();
   }
 
   update(partial: Partial<DebugData>): void {
     Object.assign(this.data, partial);
     this.render();
+    this.bindEvents();
   }
 
   toggle(): void {
     this.collapsed = !this.collapsed;
     this.render();
+    this.bindEvents();
   }
 
   destroy(): void {
@@ -64,14 +94,48 @@ export class DebugPanel {
   private onKeyDown = (e: KeyboardEvent): void => {
     const tag = (e.target as HTMLElement).tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
+    if (tag === "SELECT") return;
     if (e.key === "d" && e.ctrlKey === false && e.metaKey === false) {
       e.preventDefault();
       this.toggle();
     }
   };
 
+  private bindEvents(): void {
+    const ttsSelect = this.container.querySelector(
+      "#debug-tts-model",
+    ) as HTMLSelectElement;
+    const sttSelect = this.container.querySelector(
+      "#debug-stt-model",
+    ) as HTMLSelectElement;
+
+    if (ttsSelect) {
+      ttsSelect.addEventListener("change", () => {
+        this.callbacks.onTtsModelChange(ttsSelect.value);
+      });
+    }
+    if (sttSelect) {
+      sttSelect.addEventListener("change", () => {
+        this.callbacks.onSttModelChange(sttSelect.value);
+      });
+    }
+  }
+
   private render(): void {
     const d = this.data;
+    const ttsOptions = this.ttsModels
+      .map(
+        (m) =>
+          `<option value="${m.id}" ${m.id === d.ttsModel ? "selected" : ""}>${m.label}</option>`,
+      )
+      .join("");
+    const sttOptions = this.sttModels
+      .map(
+        (m) =>
+          `<option value="${m.id}" ${m.id === d.sttModel ? "selected" : ""}>${m.label}</option>`,
+      )
+      .join("");
+
     this.container.innerHTML = this.collapsed
       ? '<div class="debug-collapsed">debug (D)</div>'
       : `
@@ -98,6 +162,12 @@ export class DebugPanel {
           <div class="debug-row"><span>dry / wet</span><span>${d.dryWet}</span></div>
           <div class="debug-row"><span>fx active</span><span>${d.fxActive}</span></div>
           <div class="debug-row"><span>output</span><span>${d.output}</span></div>
+          <div class="debug-row"><span>tts</span>
+            <select id="debug-tts-model" class="debug-select">${ttsOptions}</select>
+          </div>
+          <div class="debug-row"><span>stt</span>
+            <select id="debug-stt-model" class="debug-select">${sttOptions}</select>
+          </div>
         </div>
       `;
   }
