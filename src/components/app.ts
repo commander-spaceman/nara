@@ -173,7 +173,10 @@ export class App {
           this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
           this.playAudio(audio, result.text);
         })
-        .catch((err) => console.error("TTS error:", err));
+        .catch((err) => {
+          this.controls.setLoading(false);
+          console.error("TTS error:", err);
+        });
 
       console.log(
         `%c[LLM memory]%c ${count} msgs`,
