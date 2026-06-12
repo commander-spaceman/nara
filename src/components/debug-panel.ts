@@ -29,7 +29,7 @@ interface DebugPanelCallbacks {
 export class DebugPanel {
   private container: HTMLElement;
   private data: DebugData;
-  private collapsed = false;
+  private collapsed = true;
   private ttsModels: ModelOption[];
   private sttModels: ModelOption[];
   private callbacks: DebugPanelCallbacks;
@@ -131,7 +131,7 @@ export class DebugPanel {
       .join("");
 
     this.container.innerHTML = this.collapsed
-      ? '<div class="debug-collapsed">debug (D)</div>'
+      ? '<div class="debug-collapsed">debug (d)</div>'
       : `
         <div class="debug-section">
           <div class="debug-section-title">status</div>
