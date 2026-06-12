@@ -1,21 +1,19 @@
 interface DebugData {
-  health: string;
-  state: string;
-  session: string;
-  memory: string;
-  fps: string;
-  position: string;
-  rotation: string;
-  scale: string;
-  animation: string;
-  blend: string;
-  pitch: string;
-  speed: string;
-  dryWet: string;
-  fxActive: string;
-  output: string;
+  llmModel: string;
   ttsModel: string;
   sttModel: string;
+  inputTokens: string;
+  outputTokens: string;
+  cacheHits: string;
+  latency: string;
+  sessionId: string;
+  sent: string;
+  received: string;
+  uptime: string;
+  startedAt: string;
+  audioDuration: string;
+  audioSize: string;
+  ttsLatency: string;
 }
 
 interface ModelOption {
@@ -49,23 +47,21 @@ export class DebugPanel {
     this.ttsModels = ttsModels;
     this.sttModels = sttModels;
     this.data = {
-      health: "ok",
-      state: "active",
-      session: "idle",
-      memory: "0 msgs",
-      fps: "60",
-      position: "0.0, -0.3, 0.0",
-      rotation: "0\u00B0, 0\u00B0, 0\u00B0",
-      scale: "0.99",
-      animation: "idle",
-      blend: "0.00",
-      pitch: "+2 st",
-      speed: "0.95x",
-      dryWet: "70% / 20%",
-      fxActive: "yes",
-      output: "speakers",
+      llmModel: "deepseek-v4-pro",
       ttsModel: initialTtsModel,
       sttModel: initialSttModel,
+      inputTokens: "0",
+      outputTokens: "0",
+      cacheHits: "-",
+      latency: "-",
+      sessionId: "-",
+      sent: "0",
+      received: "0",
+      uptime: "0s",
+      startedAt: "-",
+      audioDuration: "-",
+      audioSize: "-",
+      ttsLatency: "-",
     };
   }
 
@@ -93,8 +89,7 @@ export class DebugPanel {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     const tag = (e.target as HTMLElement).tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA") return;
-    if (tag === "SELECT") return;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (e.key === "d" && e.ctrlKey === false && e.metaKey === false) {
       e.preventDefault();
       this.toggle();
@@ -108,16 +103,15 @@ export class DebugPanel {
     const sttSelect = this.container.querySelector(
       "#debug-stt-model",
     ) as HTMLSelectElement;
-
     if (ttsSelect) {
-      ttsSelect.addEventListener("change", () => {
-        this.callbacks.onTtsModelChange(ttsSelect.value);
-      });
+      ttsSelect.addEventListener("change", () =>
+        this.callbacks.onTtsModelChange(ttsSelect.value),
+      );
     }
     if (sttSelect) {
-      sttSelect.addEventListener("change", () => {
-        this.callbacks.onSttModelChange(sttSelect.value);
-      });
+      sttSelect.addEventListener("change", () =>
+        this.callbacks.onSttModelChange(sttSelect.value),
+      );
     }
   }
 
@@ -141,33 +135,31 @@ export class DebugPanel {
       : `
         <div class="debug-section">
           <div class="debug-section-title">status</div>
-          <div class="debug-row"><span>health</span><span>${d.health}</span></div>
-          <div class="debug-row"><span>state</span><span>${d.state}</span></div>
-          <div class="debug-row"><span>session</span><span>${d.session}</span></div>
-          <div class="debug-row"><span>memory</span><span>${d.memory}</span></div>
-          <div class="debug-row"><span>fps</span><span>${d.fps}</span></div>
+          <div class="debug-row"><span>llm</span><span>${d.llmModel.split("-").slice(0, 2).join("-")}</span></div>
+          <div class="debug-row"><span>in tokens</span><span>${d.inputTokens}</span></div>
+          <div class="debug-row"><span>out tokens</span><span>${d.outputTokens}</span></div>
+          <div class="debug-row"><span>cache hits</span><span>${d.cacheHits}</span></div>
+          <div class="debug-row"><span>latency</span><span>${d.latency}</span></div>
         </div>
         <div class="debug-section">
-          <div class="debug-section-title">model</div>
-          <div class="debug-row"><span>position</span><span>${d.position}</span></div>
-          <div class="debug-row"><span>rotation</span><span>${d.rotation}</span></div>
-          <div class="debug-row"><span>scale</span><span>${d.scale}</span></div>
-          <div class="debug-row"><span>animation</span><span>${d.animation}</span></div>
-          <div class="debug-row"><span>blend</span><span>${d.blend}</span></div>
+          <div class="debug-section-title">session</div>
+          <div class="debug-row"><span>id</span><span>${d.sessionId}</span></div>
+          <div class="debug-row"><span>sent</span><span>${d.sent}</span></div>
+          <div class="debug-row"><span>received</span><span>${d.received}</span></div>
+          <div class="debug-row"><span>started</span><span>${d.startedAt}</span></div>
+          <div class="debug-row"><span>uptime</span><span>${d.uptime}</span></div>
         </div>
         <div class="debug-section">
           <div class="debug-section-title">audio</div>
-          <div class="debug-row"><span>pitch</span><span>${d.pitch}</span></div>
-          <div class="debug-row"><span>speed</span><span>${d.speed}</span></div>
-          <div class="debug-row"><span>dry / wet</span><span>${d.dryWet}</span></div>
-          <div class="debug-row"><span>fx active</span><span>${d.fxActive}</span></div>
-          <div class="debug-row"><span>output</span><span>${d.output}</span></div>
           <div class="debug-row"><span>tts</span>
             <select id="debug-tts-model" class="debug-select">${ttsOptions}</select>
           </div>
           <div class="debug-row"><span>stt</span>
             <select id="debug-stt-model" class="debug-select">${sttOptions}</select>
           </div>
+          <div class="debug-row"><span>duration</span><span>${d.audioDuration}</span></div>
+          <div class="debug-row"><span>size</span><span>${d.audioSize}</span></div>
+          <div class="debug-row"><span>tts latency</span><span>${d.ttsLatency}</span></div>
         </div>
       `;
   }
