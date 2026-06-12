@@ -12,7 +12,8 @@ import {
   listSessions,
   loadSession,
 } from "../modules/memory";
-import { synthesize } from "../modules/tts";
+import { synthesize, TTS_MODELS } from "../modules/tts";
+import { STT_MODELS } from "../modules/stt";
 
 export type InputMode = "chat" | "mic";
 
@@ -24,9 +25,14 @@ export class App {
   private controls!: Controls;
   private inputBar!: InputBar;
   private history: Message[] = [];
+  private ttsModel: string;
+  private sttModel: string;
 
   constructor(container: HTMLElement) {
     this.container = container;
+    this.ttsModel = localStorage.getItem("nara_tts_model") || "gpt-4o-mini-tts";
+    this.sttModel =
+      localStorage.getItem("nara_stt_model") || "gpt-4o-mini-transcribe";
   }
 
   mount(): void {
@@ -49,7 +55,23 @@ export class App {
       </div>
     `;
 
-    this.debugPanel = new DebugPanel(this.el("debug-panel"));
+    this.debugPanel = new DebugPanel(
+      this.el("debug-panel"),
+      {
+        onTtsModelChange: (model) => {
+          this.ttsModel = model;
+          localStorage.setItem("nara_tts_model", model);
+        },
+        onSttModelChange: (model) => {
+          this.sttModel = model;
+          localStorage.setItem("nara_stt_model", model);
+        },
+      },
+      TTS_MODELS,
+      STT_MODELS,
+      this.ttsModel,
+      this.sttModel,
+    );
     this.debugPanel.mount();
     this.debugPanel.update({ memory: "0 msgs" });
 
@@ -103,14 +125,13 @@ export class App {
       const response = await chat(text, this.history);
       this.history.push({ role: "user", content: text });
       this.history.push({ role: "assistant", content: response });
-      this.subtitleBox.setText(response);
 
       const count = this.history.length / 2;
       saveMessage("user", text).catch(() => {});
       saveMessage("assistant", response).catch(() => {});
       this.debugPanel.update({ memory: `${count} msgs` });
-      synthesize(response)
-        .then((audio) => this.playAudio(audio))
+      synthesize(response, this.ttsModel)
+        .then((audio) => this.playAudio(audio, response))
         .catch((err) => console.error("TTS error:", err));
       console.log(
         `%c[LLM memory]%c ${count} msgs`,
@@ -210,7 +231,7 @@ export class App {
     }
   }
 
-  private playAudio(arrayBuffer: ArrayBuffer): void {
+  private playAudio(arrayBuffer: ArrayBuffer, text: string): void {
     const ctx = new AudioContext();
     ctx.resume();
     console.log("[TTS] received", arrayBuffer.byteLength, "bytes");
@@ -218,6 +239,7 @@ export class App {
       arrayBuffer.slice(0),
       (buffer) => {
         console.log("[TTS] playing", buffer.duration.toFixed(1), "s");
+        this.subtitleBox.setText(text);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.connect(ctx.destination);
