@@ -124,7 +124,7 @@ export class App {
     document.addEventListener("keydown", (e) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "e" && !e.ctrlKey && !e.metaKey) {
+      if ((e.key === "e" || e.key === "Escape") && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         this.controls.toggleInput();
       }
