@@ -28,7 +28,7 @@ pub fn detect_background(app_handle: tauri::AppHandle) {
             };
 
             let cx = pos.x + (size.width as i32) / 2;
-            let cy = pos.y + (size.height as i32) / 2;
+            let cy = pos.y + (size.height as i32) * 3 / 4;
 
             let dc = unsafe { GetDC(std::ptr::null_mut()) };
             let pixel = unsafe { GetPixel(dc, cx, cy) };
