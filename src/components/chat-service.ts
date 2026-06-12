@@ -71,28 +71,6 @@ export class ChatService {
       const ttsStart = performance.now();
 
       if (import.meta.env.DEV) {
-        console.log(
-          `%c┌${"─".repeat(48)}┐`,
-          "color: #8ab4f8; font-weight: bold",
-        );
-        console.log(
-          `%c│ %cNara %cdice:`,
-          "color: #8ab4f8; font-weight: bold",
-          "color: #fff",
-          "color: #aaa",
-        );
-        for (const line of result.text.split("\n")) {
-          console.log(
-            `%c│ %c${line}`,
-            "color: #8ab4f8",
-            "color: #ccc; font-style: italic",
-          );
-        }
-        console.log(
-          `%c└${"─".repeat(48)}┘`,
-          "color: #8ab4f8; font-weight: bold",
-        );
-
         suggestReply(this.history).then((suggestion) => {
           if (!suggestion) return;
           console.log(
