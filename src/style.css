@@ -164,18 +164,33 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
 }
 
 #subtitle-box {
-  margin: 0 6px;
-  border: 1px dashed var(--panel-border);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: rgba(16, 16, 24, 0.25);
+  background-clip: content-box;
   border-radius: 8px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 8px 32px;
   height: 88px;
   overflow-y: auto;
+  scrollbar-width: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+#subtitle-box.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #subtitle-text {
@@ -207,6 +222,10 @@ body {
   75% {
     content: "...";
   }
+}
+
+#subtitle-box::-webkit-scrollbar {
+  display: none;
 }
 
 /* ---- controls ---- */

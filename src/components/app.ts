@@ -90,9 +90,9 @@ export class App {
 
     this.subtitleBox = new SubtitleBox(this.el("subtitle-box"));
     this.subtitleBox.mount();
-    this.subtitleBox.setText(
-      apiKey ? "ready" : "VITE_DEEPSEEK_API_KEY not set in .env",
-    );
+    if (!apiKey) {
+      this.subtitleBox.setText("VITE_DEEPSEEK_API_KEY not set in .env");
+    }
 
     this.sessionModal = new SessionModal(this.el("modal-overlay"), {
       onSessionLoad: (msgs) => this.onSessionLoaded(msgs),
@@ -241,6 +241,7 @@ export class App {
         source.start();
         source.onended = () => {
           if (img) img.classList.remove("talking");
+          this.subtitleBox.clear();
           ctx.close();
         };
       },

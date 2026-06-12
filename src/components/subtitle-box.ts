@@ -7,7 +7,7 @@ export class SubtitleBox {
 
   mount(): void {
     this.container.innerHTML = `
-      <div id="subtitle-text">subtitles appear here</div>
+      <div id="subtitle-text"></div>
     `;
   }
 
@@ -16,6 +16,7 @@ export class SubtitleBox {
     if (!el) return;
     el.classList.remove("loading");
     el.textContent = text;
+    this.container.classList.add("visible");
   }
 
   setLoading(): void {
@@ -23,5 +24,10 @@ export class SubtitleBox {
     if (!el) return;
     el.classList.add("loading");
     el.textContent = "";
+    this.container.classList.add("visible");
+  }
+
+  clear(): void {
+    this.container.classList.remove("visible");
   }
 }
