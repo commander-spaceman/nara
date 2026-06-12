@@ -10,22 +10,48 @@ export class AudioPlayer {
   private controls: Controls;
   private container: HTMLElement;
   private fxParams: HelmetFXParams;
+  private onPlayStart?: () => void;
+  private currentSource: AudioBufferSourceNode | null = null;
+  private currentCtx: AudioContext | null = null;
 
   constructor(
     container: HTMLElement,
     subtitleBox: SubtitleBox,
     debugPanel: DebugPanel,
     controls: Controls,
+    onPlayStart?: () => void,
   ) {
     this.container = container;
     this.subtitleBox = subtitleBox;
     this.debugPanel = debugPanel;
     this.controls = controls;
     this.fxParams = { ...HELMET_DEFAULTS };
+    this.onPlayStart = onPlayStart;
   }
 
   setFXParams(params: HelmetFXParams): void {
     this.fxParams = { ...params };
+  }
+
+  stop(): void {
+    if (this.currentSource) {
+      try {
+        this.currentSource.stop();
+      } catch {
+        /* already stopped */
+      }
+      this.currentSource = null;
+    }
+    if (this.currentCtx) {
+      this.currentCtx.close();
+      this.currentCtx = null;
+    }
+    const img = this.container.querySelector(
+      ".placeholder-model",
+    ) as HTMLElement;
+    if (img) img.classList.remove("talking");
+    this.subtitleBox.clear();
+    this.controls.setLoading(false);
   }
 
   async play(arrayBuffer: ArrayBuffer, text: string): Promise<void> {
@@ -70,6 +96,7 @@ export class AudioPlayer {
 
     const ctx = new AudioContext();
     await ctx.resume();
+    this.currentCtx = ctx;
 
     console.log("[TTS] received", processed.byteLength, "bytes");
 
@@ -88,6 +115,7 @@ export class AudioPlayer {
 
         this.subtitleBox.setText(text);
         this.controls.setLoading(false);
+        this.onPlayStart?.();
 
         const img = this.container.querySelector(
           ".placeholder-model",
@@ -105,16 +133,20 @@ export class AudioPlayer {
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.connect(ctx.destination);
+        this.currentSource = source;
         source.start();
         source.onended = () => {
           if (img) img.classList.remove("talking");
           this.subtitleBox.clear();
+          this.currentSource = null;
+          this.currentCtx = null;
           ctx.close();
         };
       },
       (err) => {
         console.error("[TTS] decode error:", err);
         this.controls.setLoading(false);
+        this.currentCtx = null;
       },
     );
   }

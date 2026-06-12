@@ -1,7 +1,10 @@
 import type { InputMode } from "./app";
 
-interface ControlsCallbacks {
+export interface ControlsCallbacks {
   onModeChange: (mode: InputMode | null) => void;
+  onMicStart?: () => void;
+  onMicStop?: () => void;
+  onMicCancel?: () => void;
 }
 
 export class Controls {
@@ -9,6 +12,8 @@ export class Controls {
   private callbacks: ControlsCallbacks;
   private activeMode: InputMode | null = null;
   private lastMode: InputMode = "chat";
+  private _isRecording = false;
+  private locked = false;
 
   constructor(container: HTMLElement, callbacks: ControlsCallbacks) {
     this.container = container;
@@ -34,10 +39,23 @@ export class Controls {
     const btnMic = this.container.querySelector("#btn-mic") as HTMLElement;
     const btnChat = this.container.querySelector("#btn-chat") as HTMLElement;
 
-    btnMic.addEventListener("click", () => this.toggleMode("mic"));
+    btnMic.addEventListener("click", () => {
+      if (this.activeMode === "mic" && this._isRecording) {
+        this.callbacks.onMicStop?.();
+      } else {
+        if (this.activeMode !== "mic") {
+          this.toggleMode("mic");
+        }
+        this.callbacks.onMicStart?.();
+      }
+    });
     btnMic.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      this.toggleMode("chat");
+      if (this._isRecording) {
+        this.callbacks.onMicCancel?.();
+      } else {
+        this.toggleMode("chat");
+      }
     });
 
     btnChat.addEventListener("click", () => this.toggleMode("chat"));
@@ -47,7 +65,19 @@ export class Controls {
     });
   }
 
+  get isRecording(): boolean {
+    return this._isRecording;
+  }
+
+  setRecording(recording: boolean): void {
+    this._isRecording = recording;
+    const btnMic = this.container.querySelector("#btn-mic")!;
+    btnMic.classList.toggle("recording", recording);
+  }
+
   private toggleMode(mode: InputMode): void {
+    if (this.locked) return;
+
     if (this.activeMode === mode) {
       this.activeMode = null;
     } else {
@@ -62,12 +92,12 @@ export class Controls {
   }
 
   setLoading(loading: boolean): void {
+    this.locked = loading;
     if (!this.activeMode) return;
     const btn = this.container.querySelector(
       this.activeMode === "chat" ? "#btn-chat" : "#btn-mic",
     );
     if (btn) {
-      console.log(`[controls] loading=${loading}, mode=${this.activeMode}`);
       btn.classList.toggle("loading", loading);
     }
   }

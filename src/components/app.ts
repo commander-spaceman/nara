@@ -6,6 +6,8 @@ import { InputBar } from "./input-bar";
 import { SessionModal } from "./session-modal";
 import { AudioPlayer } from "../audio/audio-player";
 import { ChatService } from "./chat-service";
+import { AudioCapture } from "../modules/audio-capture";
+import { transcribe } from "../modules/stt";
 import { setApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
 import { startSession, endSession, getSessionId } from "../modules/memory";
@@ -24,18 +26,19 @@ export class App {
   private sessionModal!: SessionModal;
   private audioPlayer!: AudioPlayer;
   private chatService!: ChatService;
+  private audioCapture!: AudioCapture;
   private history: Message[] = [];
   private totalInputTokens = 0;
   private totalOutputTokens = 0;
   private sessionStart = Date.now();
   private ttsModel: string;
   private sttModel: string;
+  private shouldRestartMic = false;
 
   constructor(container: HTMLElement) {
     this.container = container;
     this.ttsModel = localStorage.getItem("nara_tts_model") || "gpt-4o-mini-tts";
-    this.sttModel =
-      localStorage.getItem("nara_stt_model") || "gpt-4o-mini-transcribe";
+    this.sttModel = localStorage.getItem("nara_stt_model") || "whisper-1";
   }
 
   mount(): void {
@@ -100,6 +103,9 @@ export class App {
       onModeChange: (mode) => {
         this.inputBar.setMode(mode);
       },
+      onMicStart: () => this.startRecording(),
+      onMicStop: () => this.stopRecording(),
+      onMicCancel: () => this.cancelAndRestart(),
     });
     this.controls.mount();
 
@@ -108,6 +114,7 @@ export class App {
       this.subtitleBox,
       this.debugPanel,
       this.controls,
+      () => this.inputBar.setMode(null),
     );
 
     this.chatService = new ChatService(
@@ -120,6 +127,30 @@ export class App {
       this.totalOutputTokens,
       this.ttsModel,
     );
+
+    this.audioCapture = new AudioCapture({
+      onStateChange: (state) => {
+        if (state === "recording") {
+          this.controls.setRecording(true);
+          this.inputBar.setRecordingState(true);
+        } else if (state === "stopped") {
+          this.processRecording();
+        } else if (state === "idle") {
+          this.controls.setRecording(false);
+          this.inputBar.setRecordingState(false);
+          if (this.shouldRestartMic) {
+            this.shouldRestartMic = false;
+            this.startRecording();
+          }
+        }
+      },
+      onElapsed: (ms) => {
+        this.inputBar.setElapsed(ms);
+      },
+      onError: (message) => {
+        this.subtitleBox.setText(message);
+      },
+    });
 
     this.sessionModal = new SessionModal(this.el("modal-overlay"), {
       onSessionLoad: (msgs) => this.chatService.loadSession(msgs),
@@ -153,6 +184,46 @@ export class App {
     window.addEventListener("beforeunload", () => {
       endSession().catch(() => {});
     });
+  }
+
+  private startRecording(): void {
+    this.audioPlayer.stop();
+    this.inputBar.setMode("mic");
+    this.audioCapture.start();
+  }
+
+  private cancelAndRestart(): void {
+    this.shouldRestartMic = true;
+    this.audioCapture.cancel();
+  }
+
+  private stopRecording(): void {
+    this.controls.setRecording(false);
+    this.inputBar.setRecordingState(false);
+    this.audioCapture.stop();
+  }
+
+  private async processRecording(): Promise<void> {
+    const blob = this.audioCapture.getBlob();
+    if (!blob) return;
+
+    this.controls.setLoading(true);
+    this.inputBar.showProcessing();
+
+    try {
+      const text = await transcribe(blob, this.sttModel);
+      if (!text.trim()) {
+        this.subtitleBox.setText("Didn't catch that, try again");
+        this.controls.setLoading(false);
+        return;
+      }
+      this.inputBar.showTranscription(text);
+      this.chatService.submit(text);
+    } catch (err) {
+      console.error("STT error:", err);
+      this.subtitleBox.setText("Didn't catch that, try again");
+      this.controls.setLoading(false);
+    }
   }
 
   private handleSubmit(text: string): void {
