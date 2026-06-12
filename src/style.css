@@ -177,12 +177,11 @@ body {
   background-clip: content-box;
   border-radius: 8px;
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   padding: 8px 32px;
-  height: 88px;
-  overflow-y: auto;
-  scrollbar-width: none;
+  max-height: 200px;
+  overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
