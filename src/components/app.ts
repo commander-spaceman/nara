@@ -93,6 +93,13 @@ export class App {
       this.subtitleBox.setText("VITE_DEEPSEEK_API_KEY not set in .env");
     }
 
+    this.controls = new Controls(this.el("controls"), {
+      onModeChange: (mode) => {
+        this.inputBar.setMode(mode);
+      },
+    });
+    this.controls.mount();
+
     this.audioPlayer = new AudioPlayer(
       this.el("model-area"),
       this.subtitleBox,
@@ -119,13 +126,6 @@ export class App {
     this.inputBar = new InputBar(this.el("input-bar"), {
       onSubmit: (text) => this.handleSubmit(text),
     });
-
-    this.controls = new Controls(this.el("controls"), {
-      onModeChange: (mode) => {
-        this.inputBar.setMode(mode);
-      },
-    });
-    this.controls.mount();
     this.inputBar.mount();
 
     startSession()
