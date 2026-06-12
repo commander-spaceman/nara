@@ -107,6 +107,24 @@ body {
   color: var(--accent);
 }
 
+.debug-select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  padding: 1px 4px;
+  outline: none;
+  cursor: pointer;
+  max-width: 120px;
+}
+
+.debug-select option {
+  background: var(--panel-bg);
+  color: var(--text);
+}
+
 /* ---- model area ---- */
 #model-area {
   flex: 1;
