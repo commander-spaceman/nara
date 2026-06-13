@@ -24,7 +24,7 @@ export interface BoundsManifest {
 }
 
 const DEFAULT_BOUNDS_MANIFEST: BoundsManifest = {
-  idle: new URL("../assets/bounds/Idle.bounds.json", import.meta.url).href,
+  idle: "/build/bounds/Idle.bounds.json",
 };
 
 export async function loadBoundsMetadata(
