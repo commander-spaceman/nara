@@ -18,6 +18,8 @@ export class ModelArea {
   private boundingVolume = new THREE.Box3();
   private boundingBoxHelper: THREE.Box3Helper | null = null;
   private modelSize = new THREE.Vector3();
+  private fitReferenceCenter = new THREE.Vector3();
+  private fitReferenceSize = new THREE.Vector3();
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -120,6 +122,10 @@ export class ModelArea {
     this.mixer.update(0);
     model.scene.updateWorldMatrix(true, true);
 
+    const referenceBox = new THREE.Box3().setFromObject(this.modelGroup, true);
+    referenceBox.getCenter(this.fitReferenceCenter);
+    referenceBox.getSize(this.fitReferenceSize);
+
     this.fitModelToContainer();
   }
 
@@ -132,18 +138,6 @@ export class ModelArea {
     const camera = this.sceneManager.camera;
     this.sceneManager.setSize(w, h);
 
-    const currentScale = this.modelGroup.scale.x || 1;
-    const rawBox = new THREE.Box3().setFromObject(this.modelGroup, true);
-    const rawCenter = new THREE.Vector3();
-    rawBox.getCenter(rawCenter);
-    const rawSize = new THREE.Vector3();
-    rawBox.getSize(rawSize);
-    const localCenter = rawCenter
-      .clone()
-      .sub(this.modelGroup.position)
-      .divideScalar(currentScale);
-    const localSize = rawSize.clone().divideScalar(currentScale);
-
     const fovRad = camera.fov * (Math.PI / 180);
     const dist = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
     const visibleHeight = 2 * dist * Math.tan(fovRad / 2);
@@ -152,22 +146,23 @@ export class ModelArea {
     const fitW = visibleWidth * MARGIN;
     const fitH = visibleHeight * MARGIN;
 
-    const sx = localSize.x > 0 ? fitW / localSize.x : 1;
-    const sy = localSize.y > 0 ? fitH / localSize.y : 1;
+    const sx = this.fitReferenceSize.x > 0 ? fitW / this.fitReferenceSize.x : 1;
+    const sy = this.fitReferenceSize.y > 0 ? fitH / this.fitReferenceSize.y : 1;
     const scale = Math.min(sx, sy);
 
     this.modelGroup.scale.setScalar(scale);
-    this.modelGroup.position.copy(localCenter).multiplyScalar(-scale);
+    this.modelGroup.position
+      .copy(this.fitReferenceCenter)
+      .multiplyScalar(-scale);
     this.modelGroup.updateWorldMatrix(true, true);
 
     const scaledBox = new THREE.Box3().setFromObject(this.modelGroup, true);
     this.boundingVolume.copy(scaledBox);
-    const scaledCenter = new THREE.Vector3();
-    scaledBox.getCenter(scaledCenter);
+    const framingTarget = new THREE.Vector3(0, 0, 0);
 
-    camera.lookAt(scaledCenter);
+    camera.lookAt(framingTarget);
     camera.updateMatrixWorld();
-    this.crosshair?.position.copy(scaledCenter);
+    this.crosshair?.position.copy(framingTarget);
     this.updateDebugBounds();
   }
 
