@@ -16,6 +16,20 @@ interface DebugData {
   audioDuration: string;
   audioSize: string;
   ttsLatency: string;
+  modelState: string;
+  activeAnimation: string;
+  boundsMode: string;
+  modelPosition: string;
+  modelRotation: string;
+  modelScale: string;
+  meshSize: string;
+  frameSize: string;
+  clipInfo: string;
+  referenceSize: string;
+  bboxSize: string;
+  bboxCenter: string;
+  bboxMin: string;
+  bboxMax: string;
 }
 
 interface ModelOption {
@@ -31,15 +45,18 @@ interface DebugPanelCallbacks {
 
 export class DebugPanel {
   private container: HTMLElement;
+  private modalContainer: HTMLElement;
   private data: DebugData;
   private vocoderParams: HelmetFXParams;
   private visibility: "expanded" | "out" = "out";
+  private helmetFxVisible = false;
   private ttsModels: ModelOption[];
   private sttModels: ModelOption[];
   private callbacks: DebugPanelCallbacks;
 
   constructor(
     container: HTMLElement,
+    modalContainer: HTMLElement,
     callbacks: DebugPanelCallbacks,
     ttsModels: ModelOption[],
     sttModels: ModelOption[],
@@ -47,6 +64,7 @@ export class DebugPanel {
     initialSttModel: string,
   ) {
     this.container = container;
+    this.modalContainer = modalContainer;
     this.callbacks = callbacks;
     this.ttsModels = ttsModels;
     this.sttModels = sttModels;
@@ -67,13 +85,29 @@ export class DebugPanel {
       audioDuration: "-",
       audioSize: "-",
       ttsLatency: "-",
+      modelState: "loading",
+      activeAnimation: "-",
+      boundsMode: "normal",
+      modelPosition: "-",
+      modelRotation: "-",
+      modelScale: "-",
+      meshSize: "-",
+      frameSize: "-",
+      clipInfo: "-",
+      referenceSize: "-",
+      bboxSize: "-",
+      bboxCenter: "-",
+      bboxMin: "-",
+      bboxMax: "-",
     };
   }
 
   mount(): void {
     this.render();
+    this.renderHelmetFxModal();
     document.addEventListener("keydown", this.onKeyDown);
     this.bindEvents();
+    this.bindHelmetFxEvents();
   }
 
   update(partial: Partial<DebugData>): void {
@@ -101,6 +135,12 @@ export class DebugPanel {
     this.bindEvents();
   }
 
+  toggleHelmetFxModal(): void {
+    this.helmetFxVisible = !this.helmetFxVisible;
+    this.renderHelmetFxModal();
+    this.bindHelmetFxEvents();
+  }
+
   destroy(): void {
     document.removeEventListener("keydown", this.onKeyDown);
   }
@@ -111,6 +151,11 @@ export class DebugPanel {
     if (e.key === "d" && e.ctrlKey === false && e.metaKey === false) {
       e.preventDefault();
       this.toggle();
+      return;
+    }
+    if (e.key === "v" && e.ctrlKey === false && e.metaKey === false) {
+      e.preventDefault();
+      this.toggleHelmetFxModal();
     }
   };
 
@@ -131,16 +176,35 @@ export class DebugPanel {
         this.callbacks.onSttModelChange(sttSelect.value),
       );
     }
+  }
 
-    const resetBtn = this.container.querySelector(
+  private bindHelmetFxEvents(): void {
+    const close = this.modalContainer.querySelector(
+      "#helmet-fx-close",
+    ) as HTMLElement | null;
+    if (close) {
+      close.onclick = () => {
+        this.helmetFxVisible = false;
+        this.renderHelmetFxModal();
+      };
+    }
+
+    this.modalContainer.onclick = (e) => {
+      if (e.target === this.modalContainer) {
+        this.helmetFxVisible = false;
+        this.renderHelmetFxModal();
+      }
+    };
+
+    const resetBtn = this.modalContainer.querySelector(
       "#debug-voc-reset",
-    ) as HTMLButtonElement;
+    ) as HTMLButtonElement | null;
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
         this.vocoderParams = { ...HELMET_DEFAULTS };
         this.callbacks.onVocoderChange({ ...this.vocoderParams });
-        this.render();
-        this.bindEvents();
+        this.renderHelmetFxModal();
+        this.bindHelmetFxEvents();
       });
     }
 
@@ -154,9 +218,9 @@ export class DebugPanel {
       "drive",
     ];
     for (const id of rangeIds) {
-      const input = this.container.querySelector(
+      const input = this.modalContainer.querySelector(
         `#debug-voc-${id}`,
-      ) as HTMLInputElement;
+      ) as HTMLInputElement | null;
       if (input) {
         input.addEventListener("input", () => {
           const val = parseFloat(input.value);
@@ -183,7 +247,7 @@ export class DebugPanel {
               this.vocoderParams.drive = val;
               break;
           }
-          const display = this.container.querySelector(
+          const display = this.modalContainer.querySelector(
             `[data-voc-val="${id}"]`,
           );
           const unit = input.dataset.unit || "";
@@ -209,6 +273,20 @@ export class DebugPanel {
       "audio-duration": this.data.audioDuration,
       "audio-size": this.data.audioSize,
       "tts-latency": this.data.ttsLatency,
+      "model-state": this.data.modelState,
+      "active-animation": this.data.activeAnimation,
+      "bounds-mode": this.data.boundsMode,
+      "model-position": this.data.modelPosition,
+      "model-rotation": this.data.modelRotation,
+      "model-scale": this.data.modelScale,
+      "mesh-size": this.data.meshSize,
+      "frame-size": this.data.frameSize,
+      "clip-info": this.data.clipInfo,
+      "reference-size": this.data.referenceSize,
+      "bbox-size": this.data.bboxSize,
+      "bbox-center": this.data.bboxCenter,
+      "bbox-min": this.data.bboxMin,
+      "bbox-max": this.data.bboxMax,
     };
     for (const [field, value] of Object.entries(fields)) {
       const el = this.container.querySelector(`[data-debug="${field}"]`);
@@ -268,19 +346,51 @@ export class DebugPanel {
           </div>
         </div>
         <div class="debug-section debug-section--bottom">
-          <div class="debug-section-title">
-            helmet fx
-            <button id="debug-voc-reset" class="debug-reset-btn" title="Restore default settings">reset</button>
-          </div>
-          ${this.vocoderSlider("dry", "dry_gain", 0, 1, 0.05, "", "Dry voice level. Keep this dominant (0.70-0.90).")}
-          ${this.vocoderSlider("wet", "wet_gain", 0, 0.6, 0.05, "", "Processed layer level. Subtle (0.10-0.40).")}
-          ${this.vocoderSlider("pitch", "pitch_semitones", 0, 6, 0.5, "st", "Pitch shift on the wet layer. +2 st = classic Quarian tone.")}
-          ${this.vocoderSlider("hpf", "hpf", 50, 500, 10, "Hz", "Highpass cutoff on wet layer. Removes low rumble.")}
-          ${this.vocoderSlider("lpf", "lpf", 2000, 12000, 100, "Hz", "Lowpass cutoff on wet layer. Radio/helmet roll-off.")}
-          ${this.vocoderSlider("notch", "notch", 300, 3000, 50, "Hz", "Notch filter frequency. Helmet cavity resonance.")}
-          ${this.vocoderSlider("drive", "drive", 0, 0.3, 0.01, "", "Soft saturation amount. Adds subtle grit.")}
+          <div class="debug-section-title">model 3d</div>
+          <div class="debug-row"><span>state</span><span data-debug="model-state">${d.modelState}</span></div>
+          <div class="debug-row"><span>anim</span><span data-debug="active-animation">${d.activeAnimation}</span></div>
+          <div class="debug-row"><span>bounds</span><span data-debug="bounds-mode">${d.boundsMode}</span></div>
+          <div class="debug-row"><span>position</span><span data-debug="model-position">${d.modelPosition}</span></div>
+          <div class="debug-row"><span>rotation</span><span data-debug="model-rotation">${d.modelRotation}</span></div>
+          <div class="debug-row"><span>scale</span><span data-debug="model-scale">${d.modelScale}</span></div>
+          <div class="debug-row"><span>mesh size</span><span data-debug="mesh-size">${d.meshSize}</span></div>
+          <div class="debug-row"><span>frame</span><span data-debug="frame-size">${d.frameSize}</span></div>
+          <div class="debug-row"><span>clip</span><span data-debug="clip-info">${d.clipInfo}</span></div>
+          <div class="debug-row"><span>fit ref</span><span data-debug="reference-size">${d.referenceSize}</span></div>
+          <div class="debug-row"><span>bbox size</span><span data-debug="bbox-size">${d.bboxSize}</span></div>
+          <div class="debug-row"><span>bbox ctr</span><span data-debug="bbox-center">${d.bboxCenter}</span></div>
+          <div class="debug-row"><span>bbox min</span><span data-debug="bbox-min">${d.bboxMin}</span></div>
+          <div class="debug-row"><span>bbox max</span><span data-debug="bbox-max">${d.bboxMax}</span></div>
         </div>
       `;
+  }
+
+  private renderHelmetFxModal(): void {
+    this.modalContainer.classList.toggle("hidden", !this.helmetFxVisible);
+    this.modalContainer.innerHTML = `
+      <div id="helmet-fx-box" class="modal-box modal-box--wide">
+        <div class="modal-header">
+          <div class="modal-title">helmet fx</div>
+          <button id="helmet-fx-close" class="modal-close-btn" aria-label="Close helmet fx modal">&times;</button>
+        </div>
+        <div class="modal-content modal-content--compact">
+          <div class="debug-section debug-section--modal">
+            <div class="debug-section-title">
+              vocoder
+              <button id="debug-voc-reset" class="debug-reset-btn" title="Restore default settings">reset</button>
+            </div>
+            <div class="debug-hint">press <span>v</span> to close</div>
+            ${this.vocoderSlider("dry", "dry_gain", 0, 1, 0.05, "", "Dry voice level. Keep this dominant (0.70-0.90).")}
+            ${this.vocoderSlider("wet", "wet_gain", 0, 0.6, 0.05, "", "Processed layer level. Subtle (0.10-0.40).")}
+            ${this.vocoderSlider("pitch", "pitch_semitones", 0, 6, 0.5, "st", "Pitch shift on the wet layer. +2 st = classic Quarian tone.")}
+            ${this.vocoderSlider("hpf", "hpf", 50, 500, 10, "Hz", "Highpass cutoff on wet layer. Removes low rumble.")}
+            ${this.vocoderSlider("lpf", "lpf", 2000, 12000, 100, "Hz", "Lowpass cutoff on wet layer. Radio/helmet roll-off.")}
+            ${this.vocoderSlider("notch", "notch", 300, 3000, 50, "Hz", "Notch filter frequency. Helmet cavity resonance.")}
+            ${this.vocoderSlider("drive", "drive", 0, 0.3, 0.01, "", "Soft saturation amount. Adds subtle grit.")}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   private vocoderSlider(

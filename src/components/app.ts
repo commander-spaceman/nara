@@ -1,5 +1,5 @@
 import { DebugPanel } from "./debug-panel";
-import { ModelArea } from "./model-area";
+import { ModelArea, type ModelDebugSnapshot } from "./model-area";
 import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
@@ -53,16 +53,18 @@ export class App {
         <div id="controls"></div>
         <div id="input-bar"></div>
       </div>
-      <div id="modal-overlay" class="hidden">
-        <div id="modal-box">
-          <div id="modal-close">&times;</div>
-          <div id="modal-content"></div>
+      <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="modal-box" class="modal-box">
+          <div id="modal-close" class="modal-close">&times;</div>
+          <div id="modal-content" class="modal-content"></div>
         </div>
       </div>
+      <div id="helmet-fx-overlay" class="modal-overlay hidden"></div>
     `;
 
     this.debugPanel = new DebugPanel(
       this.el("debug-panel"),
+      this.el("helmet-fx-overlay"),
       {
         onTtsModelChange: (model) => {
           this.ttsModel = model;
@@ -90,7 +92,9 @@ export class App {
       startedAt: new Date().toTimeString().slice(0, 8),
     });
 
-    this.modelArea = new ModelArea(this.el("model-area"));
+    this.modelArea = new ModelArea(this.el("model-area"), (snapshot) => {
+      this.debugPanel.update(this.formatModelDebug(snapshot));
+    });
     this.modelArea.mount();
 
     this.subtitleBox = new SubtitleBox(this.el("subtitle-box"));
@@ -245,6 +249,41 @@ export class App {
     if (m < 60) return `${m}m ${s % 60}s`;
     const h = Math.floor(m / 60);
     return `${h}h ${m % 60}m`;
+  }
+
+  private formatModelDebug(
+    snapshot: ModelDebugSnapshot,
+  ): Partial<Record<string, string>> {
+    return {
+      modelState: snapshot.state,
+      activeAnimation: snapshot.activeAnimation,
+      boundsMode: snapshot.boundsMode,
+      modelPosition: this.formatTriple(snapshot.position),
+      modelRotation: this.formatTriple(snapshot.rotation, "deg"),
+      modelScale: this.formatTriple(snapshot.scale),
+      meshSize: this.formatTriple(snapshot.modelSize),
+      frameSize: snapshot.projectedFrame
+        ? `${Math.round(snapshot.projectedFrame.width)} x ${Math.round(snapshot.projectedFrame.height)} px`
+        : "-",
+      clipInfo:
+        snapshot.clipDuration != null
+          ? `${snapshot.clipDuration.toFixed(2)}s / ${snapshot.clipFrames ?? 0} keys / ${snapshot.trackCount ?? 0} tracks`
+          : "-",
+      referenceSize: this.formatTriple(snapshot.fitReferenceSize),
+      bboxSize: this.formatTriple(snapshot.boundingBoxSize),
+      bboxCenter: this.formatTriple(snapshot.boundingBoxCenter),
+      bboxMin: this.formatTriple(snapshot.boundingBoxMin),
+      bboxMax: this.formatTriple(snapshot.boundingBoxMax),
+    };
+  }
+
+  private formatTriple(
+    values: [number, number, number] | null,
+    unit = "",
+  ): string {
+    if (!values) return "-";
+    const suffix = unit ? ` ${unit}` : "";
+    return values.map((value) => `${value.toFixed(2)}${suffix}`).join(", ");
   }
 
   private el(id: string): HTMLElement {

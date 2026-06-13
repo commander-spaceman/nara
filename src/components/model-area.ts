@@ -18,8 +18,28 @@ const MIN_FRAME_PADDING_PX = 8;
 type BoundsMode = "normal" | "heavy";
 type AnimationKey = "idle";
 
+export interface ModelDebugSnapshot {
+  state: "loading" | "ready" | "fallback";
+  activeAnimation: string;
+  boundsMode: BoundsMode;
+  position: [number, number, number] | null;
+  rotation: [number, number, number] | null;
+  scale: [number, number, number] | null;
+  modelSize: [number, number, number] | null;
+  fitReferenceSize: [number, number, number] | null;
+  boundingBoxMin: [number, number, number] | null;
+  boundingBoxMax: [number, number, number] | null;
+  boundingBoxSize: [number, number, number] | null;
+  boundingBoxCenter: [number, number, number] | null;
+  projectedFrame: { width: number; height: number } | null;
+  clipDuration: number | null;
+  clipFrames: number | null;
+  trackCount: number | null;
+}
+
 export class ModelArea {
   private container: HTMLElement;
+  private onDebugChange?: (snapshot: ModelDebugSnapshot) => void;
   private sceneManager: SceneManager | null = null;
   private mixer: THREE.AnimationMixer | null = null;
   private removeResize: (() => void) | null = null;
@@ -31,17 +51,27 @@ export class ModelArea {
   private modelSize = new THREE.Vector3();
   private fitReferenceCenter = new THREE.Vector3();
   private fitReferenceSize = new THREE.Vector3();
+  private projectedFrame = new THREE.Vector2();
   private boundsMode: BoundsMode = "normal";
   private boundsMetadata: ModelBoundsMetadata | null = null;
   private activeAnimation: AnimationKey = "idle";
+  private clipDuration: number | null = null;
+  private clipFrames: number | null = null;
+  private trackCount: number | null = null;
+  private lastDebugEmit = 0;
 
-  constructor(container: HTMLElement) {
+  constructor(
+    container: HTMLElement,
+    onDebugChange?: (snapshot: ModelDebugSnapshot) => void,
+  ) {
     this.container = container;
+    this.onDebugChange = onDebugChange;
   }
 
   async mount(): Promise<void> {
     this.container.innerHTML = "";
     document.addEventListener("keydown", this.onKeyDown);
+    this.emitDebugSnapshot(true, "loading");
 
     const sceneManager = new SceneManager();
     this.sceneManager = sceneManager;
@@ -73,6 +103,7 @@ export class ModelArea {
       this.mixer?.update(dt);
       if (this.boundsMode === "heavy") {
         this.updateDebugBounds();
+        this.emitDebugSnapshot();
       }
     });
   }
@@ -139,6 +170,12 @@ export class ModelArea {
 
     this.mixer = new THREE.AnimationMixer(model.scene);
     const clip = model.animations[0];
+    this.clipDuration = clip.duration;
+    this.clipFrames = clip.tracks.reduce(
+      (max, track) => Math.max(max, track.times.length),
+      0,
+    );
+    this.trackCount = clip.tracks.length;
     const action = this.mixer.clipAction(clip);
     action.play();
     this.mixer.update(0);
@@ -147,6 +184,7 @@ export class ModelArea {
     this.updateFitReference();
 
     this.fitModelToContainer();
+    this.emitDebugSnapshot(true, "ready");
   }
 
   private fitModelToContainer(): void {
@@ -206,6 +244,7 @@ export class ModelArea {
       } else {
         this.updateNormalBounds();
       }
+      this.emitDebugSnapshot(true);
     }
   };
 
@@ -422,6 +461,7 @@ export class ModelArea {
 
     const boxWidth = maxX - minX;
     const boxHeight = maxY - minY;
+    this.projectedFrame.set(boxWidth, boxHeight);
     const padX = Math.max(MIN_FRAME_PADDING_PX, boxWidth * FRAME_PADDING_X);
     const padY = Math.max(MIN_FRAME_PADDING_PX, boxHeight * FRAME_PADDING_Y);
 
@@ -457,6 +497,68 @@ export class ModelArea {
     this.container.innerHTML = `
       <img class="placeholder-model" src="${quarianPlaceholder}" alt="Nara placeholder" />
     `;
+    this.emitDebugSnapshot(true, "fallback");
+  }
+
+  private emitDebugSnapshot(
+    force = false,
+    state: ModelDebugSnapshot["state"] = this.modelGroup ? "ready" : "fallback",
+  ): void {
+    if (!this.onDebugChange) return;
+    const now = performance.now();
+    if (!force && now - this.lastDebugEmit < 200) return;
+    this.lastDebugEmit = now;
+
+    const bboxSize = new THREE.Vector3();
+    const bboxCenter = new THREE.Vector3();
+    if (!this.boundingVolume.isEmpty()) {
+      this.boundingVolume.getSize(bboxSize);
+      this.boundingVolume.getCenter(bboxCenter);
+    }
+
+    this.onDebugChange({
+      state,
+      activeAnimation: this.activeAnimation,
+      boundsMode: this.boundsMode,
+      position: this.modelGroup
+        ? this.vectorTuple(this.modelGroup.position)
+        : null,
+      rotation: this.modelGroup
+        ? [
+            THREE.MathUtils.radToDeg(this.modelGroup.rotation.x),
+            THREE.MathUtils.radToDeg(this.modelGroup.rotation.y),
+            THREE.MathUtils.radToDeg(this.modelGroup.rotation.z),
+          ]
+        : null,
+      scale: this.modelGroup ? this.vectorTuple(this.modelGroup.scale) : null,
+      modelSize: this.modelGroup ? this.vectorTuple(this.modelSize) : null,
+      fitReferenceSize: this.modelGroup
+        ? this.vectorTuple(this.fitReferenceSize)
+        : null,
+      boundingBoxMin: this.boundingVolume.isEmpty()
+        ? null
+        : this.vectorTuple(this.boundingVolume.min),
+      boundingBoxMax: this.boundingVolume.isEmpty()
+        ? null
+        : this.vectorTuple(this.boundingVolume.max),
+      boundingBoxSize: this.boundingVolume.isEmpty()
+        ? null
+        : this.vectorTuple(bboxSize),
+      boundingBoxCenter: this.boundingVolume.isEmpty()
+        ? null
+        : this.vectorTuple(bboxCenter),
+      projectedFrame:
+        this.projectedFrame.x > 0 && this.projectedFrame.y > 0
+          ? { width: this.projectedFrame.x, height: this.projectedFrame.y }
+          : null,
+      clipDuration: this.clipDuration,
+      clipFrames: this.clipFrames,
+      trackCount: this.trackCount,
+    });
+  }
+
+  private vectorTuple(vector: THREE.Vector3): [number, number, number] {
+    return [vector.x, vector.y, vector.z];
   }
 
   dispose(): void {

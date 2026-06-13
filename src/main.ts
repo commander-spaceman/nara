@@ -10,7 +10,7 @@ document.addEventListener(
     if (
       e.button === 0 &&
       target.closest("#model-area") &&
-      !target.closest("#modal-overlay")
+      !target.closest(".modal-overlay")
     ) {
       getCurrentWindow().startDragging();
     }
