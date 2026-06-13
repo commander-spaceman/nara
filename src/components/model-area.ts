@@ -1,4 +1,11 @@
-import { SceneManager, createResizeHandler, loadModels } from "../3d";
+import {
+  SceneManager,
+  createResizeHandler,
+  getAnimationBounds,
+  loadBoundsMetadata,
+  loadModels,
+  type AnimationBoundsData,
+} from "../3d";
 import * as THREE from "three";
 import quarianPlaceholder from "../assets/quarian.png";
 
@@ -23,6 +30,7 @@ export class ModelArea {
   private fitReferenceCenter = new THREE.Vector3();
   private fitReferenceSize = new THREE.Vector3();
   private boundsMode: BoundsMode = "normal";
+  private normalBounds: AnimationBoundsData | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -42,8 +50,15 @@ export class ModelArea {
     });
 
     try {
-      const models = await loadModels();
+      const [models, boundsMetadata] = await Promise.all([
+        loadModels(),
+        loadBoundsMetadata(),
+      ]);
       const idleModel = models.get("idle");
+      this.normalBounds = getAnimationBounds(
+        boundsMetadata.get("idle"),
+        "idle",
+      );
 
       if (idleModel && idleModel.animations.length > 0) {
         this.setupModel(sceneManager, idleModel);
@@ -129,9 +144,17 @@ export class ModelArea {
     this.mixer.update(0);
     model.scene.updateWorldMatrix(true, true);
 
-    const referenceBox = new THREE.Box3().setFromObject(this.modelGroup, true);
-    referenceBox.getCenter(this.fitReferenceCenter);
-    referenceBox.getSize(this.fitReferenceSize);
+    if (this.normalBounds) {
+      this.fitReferenceCenter.fromArray(this.normalBounds.center);
+      this.fitReferenceSize.fromArray(this.normalBounds.size);
+    } else {
+      const referenceBox = new THREE.Box3().setFromObject(
+        this.modelGroup,
+        true,
+      );
+      referenceBox.getCenter(this.fitReferenceCenter);
+      referenceBox.getSize(this.fitReferenceSize);
+    }
 
     this.fitModelToContainer();
   }
@@ -163,14 +186,17 @@ export class ModelArea {
       .multiplyScalar(-scale);
     this.modelGroup.updateWorldMatrix(true, true);
 
-    const scaledBox = new THREE.Box3().setFromObject(this.modelGroup, true);
-    this.boundingVolume.copy(scaledBox);
     const framingTarget = new THREE.Vector3(0, 0, 0);
 
     camera.lookAt(framingTarget);
     camera.updateMatrixWorld();
     this.crosshair?.position.copy(framingTarget);
-    this.updateDebugBounds();
+
+    if (this.boundsMode === "heavy") {
+      this.updateDebugBounds();
+    } else {
+      this.updateNormalBounds();
+    }
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -187,6 +213,8 @@ export class ModelArea {
       );
       if (this.boundsMode === "heavy") {
         this.updateDebugBounds();
+      } else {
+        this.updateNormalBounds();
       }
     }
   };
@@ -197,11 +225,33 @@ export class ModelArea {
       this.crosshair.visible = debugVisible;
     }
     if (this.boundingBox) {
-      this.boundingBox.visible = debugVisible;
+      this.boundingBox.visible = true;
     }
     if (this.boundingBoxHelper) {
       this.boundingBoxHelper.visible = debugVisible;
     }
+  }
+
+  private updateNormalBounds(): void {
+    if (!this.sceneManager || !this.boundingBox || !this.modelGroup) return;
+
+    if (this.normalBounds) {
+      const localMin = new THREE.Vector3().fromArray(this.normalBounds.box.min);
+      const localMax = new THREE.Vector3().fromArray(this.normalBounds.box.max);
+      const scale = this.modelGroup.scale.x;
+      const worldMin = localMin
+        .multiplyScalar(scale)
+        .add(this.modelGroup.position);
+      const worldMax = localMax
+        .multiplyScalar(scale)
+        .add(this.modelGroup.position);
+      this.boundingVolume.min.copy(worldMin);
+      this.boundingVolume.max.copy(worldMax);
+    } else {
+      this.boundingVolume.setFromObject(this.modelGroup, true);
+    }
+
+    this.updateBoundsRectangle(this.boundingVolume);
   }
 
   private updateDebugBounds(): void {
@@ -210,13 +260,23 @@ export class ModelArea {
     const { clientWidth: w, clientHeight: h } = this.container;
     if (!w || !h) return;
 
-    const camera = this.sceneManager.camera;
     this.modelGroup.updateWorldMatrix(true, true);
     this.boundingVolume.setFromObject(this.modelGroup, true);
 
+    this.updateBoundsRectangle(this.boundingVolume);
+  }
+
+  private updateBoundsRectangle(box: THREE.Box3): void {
+    if (!this.sceneManager || !this.boundingBox) return;
+
+    const { clientWidth: w, clientHeight: h } = this.container;
+    if (!w || !h) return;
+
+    const camera = this.sceneManager.camera;
+
     const scaledCenter = new THREE.Vector3();
-    this.boundingVolume.getCenter(scaledCenter);
-    const screenBounds = this.computeProjectedBounds(camera, w, h);
+    box.getCenter(scaledCenter);
+    const screenBounds = this.computeProjectedBounds(camera, w, h, box);
     if (!screenBounds) return;
 
     const centerNdc = scaledCenter.clone().project(camera);
@@ -272,32 +332,27 @@ export class ModelArea {
     camera: THREE.PerspectiveCamera,
     width: number,
     height: number,
+    box?: THREE.Box3,
   ): { minX: number; maxX: number; minY: number; maxY: number } | null {
-    if (!this.modelGroup) return null;
-
     let minX = Infinity;
     let maxX = -Infinity;
     let minY = Infinity;
     let maxY = -Infinity;
 
-    const localPoint = new THREE.Vector3();
-    const worldPoint = new THREE.Vector3();
-    const ndcPoint = new THREE.Vector3();
+    if (box) {
+      const corners = [
+        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+      ];
 
-    this.modelGroup.updateWorldMatrix(true, true);
-    this.modelGroup.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if (!mesh.isMesh || !mesh.visible) return;
-
-      const position = mesh.geometry.getAttribute("position");
-      if (!position) return;
-
-      for (let i = 0; i < position.count; i++) {
-        mesh.getVertexPosition(i, localPoint);
-        worldPoint.copy(localPoint);
-        mesh.localToWorld(worldPoint);
-        ndcPoint.copy(worldPoint).project(camera);
-
+      for (const corner of corners) {
+        const ndcPoint = corner.clone().project(camera);
         const sx = (ndcPoint.x * 0.5 + 0.5) * width;
         const sy = (-ndcPoint.y * 0.5 + 0.5) * height;
 
@@ -306,7 +361,37 @@ export class ModelArea {
         if (sy < minY) minY = sy;
         if (sy > maxY) maxY = sy;
       }
-    });
+    } else {
+      if (!this.modelGroup) return null;
+
+      const localPoint = new THREE.Vector3();
+      const worldPoint = new THREE.Vector3();
+      const ndcPoint = new THREE.Vector3();
+
+      this.modelGroup.updateWorldMatrix(true, true);
+      this.modelGroup.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.visible) return;
+
+        const position = mesh.geometry.getAttribute("position");
+        if (!position) return;
+
+        for (let i = 0; i < position.count; i++) {
+          mesh.getVertexPosition(i, localPoint);
+          worldPoint.copy(localPoint);
+          mesh.localToWorld(worldPoint);
+          ndcPoint.copy(worldPoint).project(camera);
+
+          const sx = (ndcPoint.x * 0.5 + 0.5) * width;
+          const sy = (-ndcPoint.y * 0.5 + 0.5) * height;
+
+          if (sx < minX) minX = sx;
+          if (sx > maxX) maxX = sx;
+          if (sy < minY) minY = sy;
+          if (sy > maxY) maxY = sy;
+        }
+      });
+    }
 
     if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
       return null;
