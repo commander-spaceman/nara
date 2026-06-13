@@ -16,34 +16,38 @@ const ROOT = path.resolve(__dirname, "..");
 const MODELS_DIR = path.join(ROOT, "src", "assets", "models");
 const BOUNDS_DIR = path.join(ROOT, "build", "bounds");
 const CACHE_DIR = path.join(BOUNDS_DIR, "cache");
-const ALGORITHM_VERSION = "bounds-envelope-v1";
-const SAMPLE_COUNT = 24;
-
-const MANIFEST = [
-  {
-    modelPath: path.join(MODELS_DIR, "Idle.glb"),
-    outputPath: path.join(BOUNDS_DIR, "Idle.bounds.json"),
-  },
-];
+const MANIFEST_PATH = path.join(ROOT, "scripts", "bounds-manifest.json");
 
 await main();
 
 async function main() {
+  const manifest = readManifest();
   mkdirSync(BOUNDS_DIR, { recursive: true });
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  for (const entry of MANIFEST) {
-    await generateBoundsFile(entry.modelPath, entry.outputPath);
+  const generatedEntries = {};
+  for (const entry of manifest.entries) {
+    const generated = await generateBoundsFile(entry, manifest);
+    generatedEntries[entry.key] = generated;
   }
+
+  writeManifestIndex(manifest.algorithmVersion, generatedEntries);
 }
 
-async function generateBoundsFile(modelPath, outputPath) {
+function readManifest() {
+  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+}
+
+async function generateBoundsFile(entry, manifest) {
+  const modelPath = path.join(MODELS_DIR, entry.model);
+  const outputPath = path.join(BOUNDS_DIR, entry.output);
+  const sampleCount = entry.sampleCount ?? manifest.defaultSampleCount;
   const glbBuffer = readFileSync(modelPath);
   const modelHash = createHash("sha256")
     .update(glbBuffer)
     .digest("hex")
     .slice(0, 16);
-  const cacheKey = `${path.basename(modelPath, ".glb")}.${modelHash}.${ALGORITHM_VERSION}.samples-${SAMPLE_COUNT}.json`;
+  const cacheKey = `${path.basename(modelPath, ".glb")}.${modelHash}.${manifest.algorithmVersion}.samples-${sampleCount}.json`;
   const cachePath = path.join(CACHE_DIR, cacheKey);
 
   if (existsSync(cachePath)) {
@@ -51,7 +55,13 @@ async function generateBoundsFile(modelPath, outputPath) {
     console.log(
       `[bounds] cache hit ${path.basename(modelPath)} -> ${path.relative(ROOT, outputPath)}`,
     );
-    return;
+    return {
+      model: entry.model,
+      output: `/build/bounds/${entry.output}`,
+      sourceHash: modelHash,
+      sampleCount,
+      animations: entry.animations,
+    };
   }
 
   const loader = new GLTFLoader();
@@ -67,11 +77,21 @@ async function generateBoundsFile(modelPath, outputPath) {
   scene.updateWorldMatrix(true, true);
 
   const animations = {};
+  const allowedAnimations = new Set(
+    (entry.animations ?? []).map((name) => name.toLowerCase()),
+  );
   for (const clip of gltf.animations) {
     const name =
       cleanClipName(clip.name) ||
       path.basename(modelPath, ".glb").toLowerCase();
-    animations[name] = sampleAnimationEnvelope(scene, clip, name);
+    if (allowedAnimations.size > 0 && !allowedAnimations.has(name)) continue;
+    animations[name] = sampleAnimationEnvelope(
+      scene,
+      clip,
+      name,
+      sampleCount,
+      manifest.algorithmVersion,
+    );
   }
 
   const metadata = {
@@ -86,9 +106,36 @@ async function generateBoundsFile(modelPath, outputPath) {
   writeFileSync(cachePath, json, "utf8");
 
   console.log(`[bounds] generated ${path.relative(ROOT, outputPath)}`);
+
+  return {
+    model: entry.model,
+    output: `/build/bounds/${entry.output}`,
+    sourceHash: modelHash,
+    sampleCount,
+    animations: Object.keys(animations),
+  };
 }
 
-function sampleAnimationEnvelope(scene, clip, animationName) {
+function writeManifestIndex(algorithmVersion, entries) {
+  const manifestIndex = {
+    generatedAt: new Date().toISOString(),
+    algorithmVersion,
+    entries,
+  };
+  writeFileSync(
+    path.join(BOUNDS_DIR, "manifest.json"),
+    `${JSON.stringify(manifestIndex, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+function sampleAnimationEnvelope(
+  scene,
+  clip,
+  animationName,
+  sampleCount,
+  algorithmVersion,
+) {
   const mixer = new THREE.AnimationMixer(scene);
   const action = mixer.clipAction(clip);
   action.reset();
@@ -99,8 +146,8 @@ function sampleAnimationEnvelope(scene, clip, animationName) {
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
 
-  for (let i = 0; i <= SAMPLE_COUNT; i++) {
-    const time = clip.duration === 0 ? 0 : (clip.duration * i) / SAMPLE_COUNT;
+  for (let i = 0; i <= sampleCount; i++) {
+    const time = clip.duration === 0 ? 0 : (clip.duration * i) / sampleCount;
     mixer.setTime(time);
     scene.updateWorldMatrix(true, true);
     box.setFromObject(scene, true);
@@ -113,8 +160,8 @@ function sampleAnimationEnvelope(scene, clip, animationName) {
 
   return {
     animation: animationName,
-    sampleCount: SAMPLE_COUNT,
-    algorithmVersion: ALGORITHM_VERSION,
+    sampleCount,
+    algorithmVersion,
     box: {
       min: vec3(envelope.min),
       max: vec3(envelope.max),

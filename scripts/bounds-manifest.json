@@ -1,0 +1,12 @@
+{
+  "algorithmVersion": "bounds-envelope-v1",
+  "defaultSampleCount": 24,
+  "entries": [
+    {
+      "key": "idle",
+      "model": "Idle.glb",
+      "output": "Idle.bounds.json",
+      "animations": ["idle"]
+    }
+  ]
+}
