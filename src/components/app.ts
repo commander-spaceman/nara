@@ -118,7 +118,11 @@ export class App {
       this.subtitleBox,
       this.debugPanel,
       this.controls,
-      () => this.inputBar.setMode(null),
+      (hint) => this.modelArea.startSpeaking(hint),
+      () => {
+        this.inputBar.setMode(null);
+        this.modelArea.stopSpeaking();
+      },
     );
 
     this.chatService = new ChatService(

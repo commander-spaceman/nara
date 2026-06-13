@@ -12,6 +12,9 @@ export interface ModelManifest {
 
 const DEFAULT_MANIFEST: ModelManifest = {
   idle: new URL("../assets/models/Idle.glb", import.meta.url).href,
+  talking: new URL("../assets/models/Talking.glb", import.meta.url).href,
+  waving: new URL("../assets/models/Waving.glb", import.meta.url).href,
+  dance: new URL("../assets/models/Dance.glb", import.meta.url).href,
 };
 
 export async function loadModels(

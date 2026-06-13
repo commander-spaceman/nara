@@ -2,6 +2,8 @@ export { SceneManager } from "./scene-manager";
 export { loadBoundsMetadata, getAnimationBounds } from "./bounds-metadata";
 export { createResizeHandler } from "./resize-handler";
 export { loadModels } from "./model-loader";
+export { isGreeting, isDance, detectHint } from "./animation-state";
+export type { AnimationHint, AnimationState } from "./animation-state";
 export type {
   AnimationBoundsData,
   BoundsManifest,

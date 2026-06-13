@@ -2,6 +2,7 @@ import type { Message } from "../modules/llm";
 import { chat, getApiKey, suggestReply } from "../modules/llm";
 import { saveMessage, getSessionId } from "../modules/memory";
 import { synthesize } from "../modules/tts";
+import { detectHint } from "../3d/animation-state";
 import { SubtitleBox } from "./subtitle-box";
 import { DebugPanel } from "./debug-panel";
 import { Controls } from "./controls";
@@ -86,7 +87,8 @@ export class ChatService {
         .then(async (audio) => {
           const ttsTime = Math.round(performance.now() - ttsStart);
           this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
-          await this.audioPlayer.play(audio, result.text);
+          const hint = detectHint(text);
+          await this.audioPlayer.play(audio, result.text, hint);
         })
         .catch((err) => {
           this.controls.setLoading(false);

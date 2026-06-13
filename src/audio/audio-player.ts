@@ -3,6 +3,7 @@ import { DebugPanel } from "../components/debug-panel";
 import { Controls } from "../components/controls";
 import { invoke } from "@tauri-apps/api/core";
 import { HELMET_DEFAULTS, type HelmetFXParams } from "./audio-fx";
+import type { AnimationHint } from "../3d/animation-state";
 
 export class AudioPlayer {
   private subtitleBox: SubtitleBox;
@@ -10,7 +11,8 @@ export class AudioPlayer {
   private controls: Controls;
   private container: HTMLElement;
   private fxParams: HelmetFXParams;
-  private onPlayStart?: () => void;
+  private onPlayStart?: (hint: AnimationHint) => void;
+  private onPlayEnd?: () => void;
   private currentSource: AudioBufferSourceNode | null = null;
   private currentCtx: AudioContext | null = null;
 
@@ -19,7 +21,8 @@ export class AudioPlayer {
     subtitleBox: SubtitleBox,
     debugPanel: DebugPanel,
     controls: Controls,
-    onPlayStart?: () => void,
+    onPlayStart?: (hint: AnimationHint) => void,
+    onPlayEnd?: () => void,
   ) {
     this.container = container;
     this.subtitleBox = subtitleBox;
@@ -27,6 +30,7 @@ export class AudioPlayer {
     this.controls = controls;
     this.fxParams = { ...HELMET_DEFAULTS };
     this.onPlayStart = onPlayStart;
+    this.onPlayEnd = onPlayEnd;
   }
 
   setFXParams(params: HelmetFXParams): void {
@@ -54,7 +58,11 @@ export class AudioPlayer {
     this.controls.setLoading(false);
   }
 
-  async play(arrayBuffer: ArrayBuffer, text: string): Promise<void> {
+  async play(
+    arrayBuffer: ArrayBuffer,
+    text: string,
+    hint?: AnimationHint,
+  ): Promise<void> {
     let processed: ArrayBuffer;
 
     try {
@@ -115,7 +123,7 @@ export class AudioPlayer {
 
         this.subtitleBox.setText(text);
         this.controls.setLoading(false);
-        this.onPlayStart?.();
+        this.onPlayStart?.(hint ?? "talking");
 
         const img = this.container.querySelector(
           ".placeholder-model",
@@ -141,6 +149,7 @@ export class AudioPlayer {
           this.currentSource = null;
           this.currentCtx = null;
           ctx.close();
+          this.onPlayEnd?.();
         };
       },
       (err) => {

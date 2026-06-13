@@ -5,6 +5,8 @@ import {
   loadBoundsMetadata,
   loadModels,
   type AnimationBoundsData,
+  type AnimationHint,
+  type AnimationState,
   type ModelBoundsMetadata,
 } from "../3d";
 import * as THREE from "three";
@@ -18,65 +20,74 @@ const MIN_FRAME_PADDING_PX = 8;
 type BoundsMode = "normal" | "heavy";
 type AnimationKey = "idle";
 
+const ANIMATION_STATES: AnimationState[] = [
+  "idle",
+  "talking",
+  "waving",
+  "dance",
+];
+
 export interface ModelDebugSnapshot {
   fps: number | null;
   activeAnimation: string;
-  boundsMode: BoundsMode;
+  boundsMode: string;
   position: [number, number, number] | null;
   rotation: [number, number, number] | null;
   scale: [number, number, number] | null;
   modelSize: [number, number, number] | null;
-  fitReferenceSize: [number, number, number] | null;
-  boundingBoxMin: [number, number, number] | null;
-  boundingBoxMax: [number, number, number] | null;
-  boundingBoxSize: [number, number, number] | null;
-  boundingBoxCenter: [number, number, number] | null;
   projectedFrame: { width: number; height: number } | null;
   clipDuration: number | null;
   clipFrames: number | null;
   trackCount: number | null;
+  fitReferenceSize: [number, number, number] | null;
+  boundingBoxSize: [number, number, number] | null;
+  boundingBoxCenter: [number, number, number] | null;
+  boundingBoxMin: [number, number, number] | null;
+  boundingBoxMax: [number, number, number] | null;
 }
 
 export class ModelArea {
   private container: HTMLElement;
-  private onDebugChange?: (snapshot: ModelDebugSnapshot) => void;
   private sceneManager: SceneManager | null = null;
-  private mixer: THREE.AnimationMixer | null = null;
   private removeResize: (() => void) | null = null;
-  private modelGroup: THREE.Group | null = null;
+
+  private modelGroups = new Map<AnimationState, THREE.Group>();
+  private mixers = new Map<AnimationState, THREE.AnimationMixer>();
+  private actions = new Map<AnimationState, THREE.AnimationAction>();
+  private currentState: AnimationState = "idle";
+  private currentAction: THREE.AnimationAction | null = null;
+
   private crosshair: THREE.Group | null = null;
   private boundingBox: THREE.Line | null = null;
   private boundingVolume = new THREE.Box3();
   private boundingBoxHelper: THREE.Box3Helper | null = null;
-  private modelSize = new THREE.Vector3();
+
+  private fitScale = 1;
+  private activeAnimation: AnimationKey = "idle";
   private fitReferenceCenter = new THREE.Vector3();
   private fitReferenceSize = new THREE.Vector3();
-  private projectedFrame = new THREE.Vector2();
   private boundsMode: BoundsMode = "normal";
   private boundsMetadata: ModelBoundsMetadata | null = null;
-  private activeAnimation: AnimationKey = "idle";
-  private clipDuration: number | null = null;
-  private clipFrames: number | null = null;
-  private trackCount: number | null = null;
-  private lastDebugEmit = 0;
-  private fps: number | null = null;
+  private lastSnapshotTime = performance.now();
+  private snapshotFrames = 0;
+  private currentFps = 0;
+
+  private onDebugSnapshot?: (snapshot: ModelDebugSnapshot) => void;
 
   constructor(
     container: HTMLElement,
-    onDebugChange?: (snapshot: ModelDebugSnapshot) => void,
+    onDebugSnapshot?: (snapshot: ModelDebugSnapshot) => void,
   ) {
     this.container = container;
-    this.onDebugChange = onDebugChange;
+    this.onDebugSnapshot = onDebugSnapshot;
   }
 
   async mount(): Promise<void> {
     this.container.innerHTML = "";
     document.addEventListener("keydown", this.onKeyDown);
-    this.emitDebugSnapshot(true);
 
     const sceneManager = new SceneManager();
     this.sceneManager = sceneManager;
-
     this.container.appendChild(sceneManager.canvas);
 
     this.removeResize = createResizeHandler(this.container, () => {
@@ -88,109 +99,127 @@ export class ModelArea {
         loadModels(),
         loadBoundsMetadata(),
       ]);
-      const idleModel = models.get("idle");
       this.boundsMetadata = boundsMetadata.get("idle") ?? null;
 
-      if (idleModel && idleModel.animations.length > 0) {
-        this.setupModel(sceneManager, idleModel);
-      } else {
+      const idleModel = models.get("idle");
+      if (!idleModel || idleModel.animations.length === 0) {
         this.showFallback();
+        return;
       }
+
+      this.setupDebugObjects(sceneManager);
+      this.setupModel(sceneManager, idleModel);
+      this.setupAdditionalModels(sceneManager, models);
+      this.startIdleClip();
+      this.mixer("idle")!.update(0);
+      this.modelGroup("idle")!.updateWorldMatrix(true, true);
+      this.updateFitReference();
+      this.fitModelToContainer();
     } catch {
       this.showFallback();
     }
 
+    this.lastSnapshotTime = performance.now();
+    this.snapshotFrames = 0;
     sceneManager.start((dt) => {
-      this.mixer?.update(dt);
-      this.fps = dt > 0 ? Math.round(1 / dt) : null;
+      this.mixer(this.currentState)?.update(dt);
       if (this.boundsMode === "heavy") {
         this.updateDebugBounds();
       }
-      this.emitDebugSnapshot();
+      this.snapshotFrames++;
+      const now = performance.now();
+      if (now - this.lastSnapshotTime >= 1000) {
+        this.currentFps = Math.round(
+          this.snapshotFrames / ((now - this.lastSnapshotTime) / 1000),
+        );
+        this.snapshotFrames = 0;
+        this.lastSnapshotTime = now;
+        this.emitDebugSnapshot();
+      }
     });
+  }
+
+  startSpeaking(hint: AnimationHint): void {
+    this.transitionTo(hint);
+  }
+
+  stopSpeaking(): void {
+    this.transitionTo("idle");
+  }
+
+  private transitionTo(state: AnimationState): void {
+    if (!this.sceneManager || state === this.currentState) return;
+    if (!this.modelGroups.has(state)) return;
+
+    this.currentAction?.stop();
+
+    for (const [s, group] of this.modelGroups) {
+      group.visible = s === state;
+    }
+
+    this.currentState = state;
+    this.currentAction = this.actions.get(state) ?? null;
+    this.currentAction?.reset().play();
+    this.activeAnimation = "idle";
+  }
+
+  private mixer(state: AnimationState): THREE.AnimationMixer | undefined {
+    return this.mixers.get(state);
+  }
+
+  private modelGroup(state: AnimationState): THREE.Group | undefined {
+    return this.modelGroups.get(state);
   }
 
   private setupModel(
     sceneManager: SceneManager,
     model: { scene: THREE.Group; animations: THREE.AnimationClip[] },
   ): void {
-    sceneManager.scene.add(model.scene);
-    this.modelGroup = model.scene;
+    const group = model.scene;
+    sceneManager.scene.add(group);
+    this.modelGroups.set("idle", group);
 
-    const crossMat = new THREE.LineBasicMaterial({
-      color: "#ff3344",
-      transparent: true,
-      opacity: 0.7,
-      depthTest: false,
-    });
-    const half = 0.25;
-    const hGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-half, 0, 0),
-      new THREE.Vector3(half, 0, 0),
-    ]);
-    const vGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, -half, 0),
-      new THREE.Vector3(0, half, 0),
-    ]);
-    this.crosshair = new THREE.Group();
-    this.crosshair.add(new THREE.Line(hGeo, crossMat));
-    this.crosshair.add(new THREE.Line(vGeo, crossMat));
-    sceneManager.scene.add(this.crosshair);
+    const mixer = new THREE.AnimationMixer(group);
+    this.mixers.set("idle", mixer);
 
-    const bbMat = new THREE.LineBasicMaterial({
-      color: "#44aaff",
-      transparent: true,
-      opacity: 0.5,
-      depthTest: false,
-    });
-    const bbGeo = new THREE.BufferGeometry();
-    bbGeo.setFromPoints([
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-    ]);
-    this.boundingBox = new THREE.Line(bbGeo, bbMat);
-    sceneManager.scene.add(this.boundingBox);
-
-    this.boundingBoxHelper = new THREE.Box3Helper(
-      this.boundingVolume,
-      new THREE.Color("#00ff88"),
-    );
-    this.boundingBoxHelper.renderOrder = 2;
-    const helperMaterial = this.boundingBoxHelper
-      .material as THREE.LineBasicMaterial;
-    helperMaterial.depthTest = false;
-    helperMaterial.transparent = true;
-    helperMaterial.opacity = 0.9;
-    sceneManager.scene.add(this.boundingBoxHelper);
-    this.applyBoundsMode();
-
-    const box = new THREE.Box3().setFromObject(model.scene);
-    box.getSize(this.modelSize);
-
-    this.mixer = new THREE.AnimationMixer(model.scene);
     const clip = model.animations[0];
-    this.clipDuration = clip.duration;
-    this.clipFrames = clip.tracks.reduce(
-      (max, track) => Math.max(max, track.times.length),
-      0,
-    );
-    this.trackCount = clip.tracks.length;
-    const action = this.mixer.clipAction(clip);
-    action.play();
-    this.mixer.update(0);
-    model.scene.updateWorldMatrix(true, true);
+    const action = mixer.clipAction(clip);
+    this.actions.set("idle", action);
+  }
 
-    this.updateFitReference();
+  private setupAdditionalModels(
+    sceneManager: SceneManager,
+    models: Map<
+      string,
+      { scene: THREE.Group; animations: THREE.AnimationClip[] }
+    >,
+  ): void {
+    for (const state of ANIMATION_STATES) {
+      if (state === "idle") continue;
+      const model = models.get(state);
+      if (!model || model.animations.length === 0) continue;
 
-    this.fitModelToContainer();
-    this.emitDebugSnapshot(true);
+      const group = model.scene;
+      group.visible = false;
+      sceneManager.scene.add(group);
+      this.modelGroups.set(state, group);
+
+      const mixer = new THREE.AnimationMixer(group);
+      this.mixers.set(state, mixer);
+
+      const clip = model.animations[0];
+      const action = mixer.clipAction(clip);
+      this.actions.set(state, action);
+    }
+  }
+
+  private startIdleClip(): void {
+    this.currentAction = this.actions.get("idle") ?? null;
+    this.currentAction?.play();
   }
 
   private fitModelToContainer(): void {
-    if (!this.modelGroup || !this.sceneManager) return;
+    if (!this.sceneManager) return;
 
     const { clientWidth: w, clientHeight: h } = this.container;
     if (!w || !h) return;
@@ -208,16 +237,17 @@ export class ModelArea {
 
     const sx = this.fitReferenceSize.x > 0 ? fitW / this.fitReferenceSize.x : 1;
     const sy = this.fitReferenceSize.y > 0 ? fitH / this.fitReferenceSize.y : 1;
-    const scale = Math.min(sx, sy);
+    this.fitScale = Math.min(sx, sy);
 
-    this.modelGroup.scale.setScalar(scale);
-    this.modelGroup.position
-      .copy(this.fitReferenceCenter)
-      .multiplyScalar(-scale);
-    this.modelGroup.updateWorldMatrix(true, true);
+    for (const [, group] of this.modelGroups) {
+      group.scale.setScalar(this.fitScale);
+      group.position
+        .copy(this.fitReferenceCenter)
+        .multiplyScalar(-this.fitScale);
+      group.updateWorldMatrix(true, true);
+    }
 
     const framingTarget = new THREE.Vector3(0, 0, 0);
-
     camera.lookAt(framingTarget);
     camera.updateMatrixWorld();
     this.crosshair?.position.copy(framingTarget);
@@ -246,7 +276,6 @@ export class ModelArea {
       } else {
         this.updateNormalBounds();
       }
-      this.emitDebugSnapshot(true);
     }
   };
 
@@ -278,36 +307,36 @@ export class ModelArea {
       return;
     }
 
-    if (!this.modelGroup) return;
+    const idleGroup = this.modelGroup("idle");
+    if (!idleGroup) return;
 
-    const referenceBox = new THREE.Box3().setFromObject(this.modelGroup, true);
+    const referenceBox = new THREE.Box3().setFromObject(idleGroup, true);
     referenceBox.getCenter(this.fitReferenceCenter);
     referenceBox.getSize(this.fitReferenceSize);
   }
 
   private updateNormalBounds(): void {
-    if (!this.sceneManager || !this.boundingBox || !this.modelGroup) return;
+    if (!this.sceneManager || !this.boundingBox) return;
+
+    const group = this.modelGroup(this.currentState);
+    if (!group) return;
 
     const activeBounds = this.getActiveAnimationBounds();
 
     if (activeBounds) {
       const localMin = new THREE.Vector3().fromArray(activeBounds.box.min);
       const localMax = new THREE.Vector3().fromArray(activeBounds.box.max);
-      const scale = this.modelGroup.scale.x;
-      const worldMin = localMin
-        .multiplyScalar(scale)
-        .add(this.modelGroup.position);
-      const worldMax = localMax
-        .multiplyScalar(scale)
-        .add(this.modelGroup.position);
+      const scale = group.scale.x;
+      const worldMin = localMin.multiplyScalar(scale).add(group.position);
+      const worldMax = localMax.multiplyScalar(scale).add(group.position);
       this.boundingVolume.min.copy(worldMin);
       this.boundingVolume.max.copy(worldMax);
     } else {
-      const scale = this.modelGroup.scale.x;
+      const scale = group.scale.x;
       const worldCenter = this.fitReferenceCenter
         .clone()
         .multiplyScalar(scale)
-        .add(this.modelGroup.position);
+        .add(group.position);
       const halfSize = this.fitReferenceSize
         .clone()
         .multiplyScalar(scale * 0.5);
@@ -319,13 +348,14 @@ export class ModelArea {
   }
 
   private updateDebugBounds(): void {
-    if (!this.modelGroup || !this.sceneManager || !this.boundingBox) return;
+    const group = this.modelGroup(this.currentState);
+    if (!group || !this.sceneManager || !this.boundingBox) return;
 
     const { clientWidth: w, clientHeight: h } = this.container;
     if (!w || !h) return;
 
-    this.modelGroup.updateWorldMatrix(true, true);
-    this.boundingVolume.setFromObject(this.modelGroup, true);
+    group.updateWorldMatrix(true, true);
+    this.boundingVolume.setFromObject(group, true);
 
     this.updateBoundsRectangle(this.boundingVolume);
   }
@@ -426,14 +456,15 @@ export class ModelArea {
         if (sy > maxY) maxY = sy;
       }
     } else {
-      if (!this.modelGroup) return null;
+      const group = this.modelGroup(this.currentState);
+      if (!group) return null;
 
       const localPoint = new THREE.Vector3();
       const worldPoint = new THREE.Vector3();
       const ndcPoint = new THREE.Vector3();
 
-      this.modelGroup.updateWorldMatrix(true, true);
-      this.modelGroup.traverse((obj) => {
+      group.updateWorldMatrix(true, true);
+      group.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (!mesh.isMesh || !mesh.visible) return;
 
@@ -463,7 +494,6 @@ export class ModelArea {
 
     const boxWidth = maxX - minX;
     const boxHeight = maxY - minY;
-    this.projectedFrame.set(boxWidth, boxHeight);
     const padX = Math.max(MIN_FRAME_PADDING_PX, boxWidth * FRAME_PADDING_X);
     const padY = Math.max(MIN_FRAME_PADDING_PX, boxHeight * FRAME_PADDING_Y);
 
@@ -490,82 +520,136 @@ export class ModelArea {
     ).unproject(camera);
   }
 
+  private setupDebugObjects(sceneManager: SceneManager): void {
+    const crossMat = new THREE.LineBasicMaterial({
+      color: "#ff3344",
+      transparent: true,
+      opacity: 0.7,
+      depthTest: false,
+    });
+    const half = 0.25;
+    const hGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-half, 0, 0),
+      new THREE.Vector3(half, 0, 0),
+    ]);
+    const vGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -half, 0),
+      new THREE.Vector3(0, half, 0),
+    ]);
+    this.crosshair = new THREE.Group();
+    this.crosshair.add(new THREE.Line(hGeo, crossMat));
+    this.crosshair.add(new THREE.Line(vGeo, crossMat));
+    sceneManager.scene.add(this.crosshair);
+
+    const bbMat = new THREE.LineBasicMaterial({
+      color: "#44aaff",
+      transparent: true,
+      opacity: 0.5,
+      depthTest: false,
+    });
+    const bbGeo = new THREE.BufferGeometry();
+    bbGeo.setFromPoints([
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+    ]);
+    this.boundingBox = new THREE.Line(bbGeo, bbMat);
+    sceneManager.scene.add(this.boundingBox);
+
+    this.boundingBoxHelper = new THREE.Box3Helper(
+      this.boundingVolume,
+      new THREE.Color("#00ff88"),
+    );
+    this.boundingBoxHelper.renderOrder = 2;
+    const helperMaterial = this.boundingBoxHelper
+      .material as THREE.LineBasicMaterial;
+    helperMaterial.depthTest = false;
+    helperMaterial.transparent = true;
+    helperMaterial.opacity = 0.9;
+    sceneManager.scene.add(this.boundingBoxHelper);
+    this.applyBoundsMode();
+  }
+
+  private emitDebugSnapshot(): void {
+    if (!this.onDebugSnapshot) return;
+    const group = this.modelGroup(this.currentState);
+    const action = this.actions.get(this.currentState);
+    const clip = action?.getClip();
+    const bbox = this.boundingVolume;
+    const bboxSize = new THREE.Vector3();
+    const bboxCenter = new THREE.Vector3();
+    bbox.getSize(bboxSize);
+    bbox.getCenter(bboxCenter);
+
+    let projectedFrame: { width: number; height: number } | null = null;
+    if (this.sceneManager) {
+      const { clientWidth: w, clientHeight: h } = this.container;
+      if (w && h) {
+        const sb = this.computeProjectedBounds(
+          this.sceneManager.camera,
+          w,
+          h,
+          bbox,
+        );
+        if (sb) {
+          projectedFrame = {
+            width: sb.maxX - sb.minX,
+            height: sb.maxY - sb.minY,
+          };
+        }
+      }
+    }
+
+    this.onDebugSnapshot({
+      fps: this.currentFps,
+      activeAnimation: this.currentState,
+      boundsMode: this.boundsMode,
+      position: group
+        ? [group.position.x, group.position.y, group.position.z]
+        : null,
+      rotation: group
+        ? [group.rotation.x, group.rotation.y, group.rotation.z]
+        : null,
+      scale: group ? [group.scale.x, group.scale.y, group.scale.z] : null,
+      modelSize: [
+        this.fitReferenceSize.x,
+        this.fitReferenceSize.y,
+        this.fitReferenceSize.z,
+      ],
+      projectedFrame,
+      clipDuration: clip?.duration ?? null,
+      clipFrames: clip ? Math.round(clip.duration * 30) : null,
+      trackCount: clip?.tracks.length ?? null,
+      fitReferenceSize: [
+        this.fitReferenceSize.x,
+        this.fitReferenceSize.y,
+        this.fitReferenceSize.z,
+      ],
+      boundingBoxSize: [bboxSize.x, bboxSize.y, bboxSize.z],
+      boundingBoxCenter: [bboxCenter.x, bboxCenter.y, bboxCenter.z],
+      boundingBoxMin: [bbox.min.x, bbox.min.y, bbox.min.z],
+      boundingBoxMax: [bbox.max.x, bbox.max.y, bbox.max.z],
+    });
+  }
+
   private showFallback(): void {
     this.sceneManager?.dispose();
     this.sceneManager = null;
-    this.mixer = null;
     this.removeResize?.();
     this.removeResize = null;
     this.container.innerHTML = `
       <img class="placeholder-model" src="${quarianPlaceholder}" alt="Nara placeholder" />
     `;
-    this.emitDebugSnapshot(true);
-  }
-
-  private emitDebugSnapshot(force = false): void {
-    if (!this.onDebugChange) return;
-    const now = performance.now();
-    if (!force && now - this.lastDebugEmit < 200) return;
-    this.lastDebugEmit = now;
-
-    const bboxSize = new THREE.Vector3();
-    const bboxCenter = new THREE.Vector3();
-    if (!this.boundingVolume.isEmpty()) {
-      this.boundingVolume.getSize(bboxSize);
-      this.boundingVolume.getCenter(bboxCenter);
-    }
-
-    this.onDebugChange({
-      fps: this.fps,
-      activeAnimation: this.activeAnimation,
-      boundsMode: this.boundsMode,
-      position: this.modelGroup
-        ? this.vectorTuple(this.modelGroup.position)
-        : null,
-      rotation: this.modelGroup
-        ? [
-            THREE.MathUtils.radToDeg(this.modelGroup.rotation.x),
-            THREE.MathUtils.radToDeg(this.modelGroup.rotation.y),
-            THREE.MathUtils.radToDeg(this.modelGroup.rotation.z),
-          ]
-        : null,
-      scale: this.modelGroup ? this.vectorTuple(this.modelGroup.scale) : null,
-      modelSize: this.modelGroup ? this.vectorTuple(this.modelSize) : null,
-      fitReferenceSize: this.modelGroup
-        ? this.vectorTuple(this.fitReferenceSize)
-        : null,
-      boundingBoxMin: this.boundingVolume.isEmpty()
-        ? null
-        : this.vectorTuple(this.boundingVolume.min),
-      boundingBoxMax: this.boundingVolume.isEmpty()
-        ? null
-        : this.vectorTuple(this.boundingVolume.max),
-      boundingBoxSize: this.boundingVolume.isEmpty()
-        ? null
-        : this.vectorTuple(bboxSize),
-      boundingBoxCenter: this.boundingVolume.isEmpty()
-        ? null
-        : this.vectorTuple(bboxCenter),
-      projectedFrame:
-        this.projectedFrame.x > 0 && this.projectedFrame.y > 0
-          ? { width: this.projectedFrame.x, height: this.projectedFrame.y }
-          : null,
-      clipDuration: this.clipDuration,
-      clipFrames: this.clipFrames,
-      trackCount: this.trackCount,
-    });
-  }
-
-  private vectorTuple(vector: THREE.Vector3): [number, number, number] {
-    return [vector.x, vector.y, vector.z];
   }
 
   dispose(): void {
     this.removeResize?.();
     document.removeEventListener("keydown", this.onKeyDown);
     if (this.sceneManager) {
-      if (this.modelGroup) {
-        this.sceneManager.scene.remove(this.modelGroup);
+      for (const group of this.modelGroups.values()) {
+        this.sceneManager.scene.remove(group);
       }
       if (this.crosshair) {
         this.sceneManager.scene.remove(this.crosshair);
@@ -579,9 +663,11 @@ export class ModelArea {
       this.sceneManager.dispose();
       this.sceneManager = null;
     }
-    this.mixer = null;
-    this.modelGroup = null;
+    this.mixers.clear();
+    this.actions.clear();
+    this.modelGroups.clear();
     this.crosshair = null;
+    this.boundingBox = null;
     this.boundingBoxHelper = null;
     this.container.innerHTML = "";
   }
