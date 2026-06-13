@@ -5,6 +5,7 @@ import {
   loadBoundsMetadata,
   loadModels,
   type AnimationBoundsData,
+  type ModelBoundsMetadata,
 } from "../3d";
 import * as THREE from "three";
 import quarianPlaceholder from "../assets/quarian.png";
@@ -15,6 +16,7 @@ const FRAME_PADDING_Y = 0.05;
 const MIN_FRAME_PADDING_PX = 8;
 
 type BoundsMode = "normal" | "heavy";
+type AnimationKey = "idle";
 
 export class ModelArea {
   private container: HTMLElement;
@@ -30,7 +32,8 @@ export class ModelArea {
   private fitReferenceCenter = new THREE.Vector3();
   private fitReferenceSize = new THREE.Vector3();
   private boundsMode: BoundsMode = "normal";
-  private normalBounds: AnimationBoundsData | null = null;
+  private boundsMetadata: ModelBoundsMetadata | null = null;
+  private activeAnimation: AnimationKey = "idle";
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -55,10 +58,7 @@ export class ModelArea {
         loadBoundsMetadata(),
       ]);
       const idleModel = models.get("idle");
-      this.normalBounds = getAnimationBounds(
-        boundsMetadata.get("idle"),
-        "idle",
-      );
+      this.boundsMetadata = boundsMetadata.get("idle") ?? null;
 
       if (idleModel && idleModel.animations.length > 0) {
         this.setupModel(sceneManager, idleModel);
@@ -144,17 +144,7 @@ export class ModelArea {
     this.mixer.update(0);
     model.scene.updateWorldMatrix(true, true);
 
-    if (this.normalBounds) {
-      this.fitReferenceCenter.fromArray(this.normalBounds.center);
-      this.fitReferenceSize.fromArray(this.normalBounds.size);
-    } else {
-      const referenceBox = new THREE.Box3().setFromObject(
-        this.modelGroup,
-        true,
-      );
-      referenceBox.getCenter(this.fitReferenceCenter);
-      referenceBox.getSize(this.fitReferenceSize);
-    }
+    this.updateFitReference();
 
     this.fitModelToContainer();
   }
@@ -232,12 +222,36 @@ export class ModelArea {
     }
   }
 
+  private getActiveAnimationBounds(): AnimationBoundsData | null {
+    return getAnimationBounds(
+      this.boundsMetadata ?? undefined,
+      this.activeAnimation,
+    );
+  }
+
+  private updateFitReference(): void {
+    const activeBounds = this.getActiveAnimationBounds();
+    if (activeBounds) {
+      this.fitReferenceCenter.fromArray(activeBounds.center);
+      this.fitReferenceSize.fromArray(activeBounds.size);
+      return;
+    }
+
+    if (!this.modelGroup) return;
+
+    const referenceBox = new THREE.Box3().setFromObject(this.modelGroup, true);
+    referenceBox.getCenter(this.fitReferenceCenter);
+    referenceBox.getSize(this.fitReferenceSize);
+  }
+
   private updateNormalBounds(): void {
     if (!this.sceneManager || !this.boundingBox || !this.modelGroup) return;
 
-    if (this.normalBounds) {
-      const localMin = new THREE.Vector3().fromArray(this.normalBounds.box.min);
-      const localMax = new THREE.Vector3().fromArray(this.normalBounds.box.max);
+    const activeBounds = this.getActiveAnimationBounds();
+
+    if (activeBounds) {
+      const localMin = new THREE.Vector3().fromArray(activeBounds.box.min);
+      const localMax = new THREE.Vector3().fromArray(activeBounds.box.max);
       const scale = this.modelGroup.scale.x;
       const worldMin = localMin
         .multiplyScalar(scale)
