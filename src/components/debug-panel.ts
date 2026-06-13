@@ -375,18 +375,19 @@ export class DebugPanel {
         </div>
         <div class="modal-content modal-content--compact">
           <div class="debug-section debug-section--modal">
-            <div class="debug-section-title">
-              vocoder
+            <div class="debug-modal-toolbar">
+              <div class="debug-hint">press <span>v</span> to close</div>
               <button id="debug-voc-reset" class="debug-reset-btn" title="Restore default settings">reset</button>
             </div>
-            <div class="debug-hint">press <span>v</span> to close</div>
-            ${this.vocoderSlider("dry", "dry_gain", 0, 1, 0.05, "", "Dry voice level. Keep this dominant (0.70-0.90).")}
-            ${this.vocoderSlider("wet", "wet_gain", 0, 0.6, 0.05, "", "Processed layer level. Subtle (0.10-0.40).")}
-            ${this.vocoderSlider("pitch", "pitch_semitones", 0, 6, 0.5, "st", "Pitch shift on the wet layer. +2 st = classic Quarian tone.")}
-            ${this.vocoderSlider("hpf", "hpf", 50, 500, 10, "Hz", "Highpass cutoff on wet layer. Removes low rumble.")}
-            ${this.vocoderSlider("lpf", "lpf", 2000, 12000, 100, "Hz", "Lowpass cutoff on wet layer. Radio/helmet roll-off.")}
-            ${this.vocoderSlider("notch", "notch", 300, 3000, 50, "Hz", "Notch filter frequency. Helmet cavity resonance.")}
-            ${this.vocoderSlider("drive", "drive", 0, 0.3, 0.01, "", "Soft saturation amount. Adds subtle grit.")}
+            <div class="debug-modal-grid">
+              ${this.vocoderSlider("dry", "dry_gain", 0, 1, 0.05, "", "Dry voice level. Keep this dominant (0.70-0.90).")}
+              ${this.vocoderSlider("wet", "wet_gain", 0, 0.6, 0.05, "", "Processed layer level. Subtle (0.10-0.40).")}
+              ${this.vocoderSlider("pitch", "pitch_semitones", 0, 6, 0.5, "st", "Pitch shift on the wet layer. +2 st = classic Quarian tone.")}
+              ${this.vocoderSlider("hpf", "hpf", 50, 500, 10, "Hz", "Highpass cutoff on wet layer. Removes low rumble.")}
+              ${this.vocoderSlider("lpf", "lpf", 2000, 12000, 100, "Hz", "Lowpass cutoff on wet layer. Radio/helmet roll-off.")}
+              ${this.vocoderSlider("notch", "notch", 300, 3000, 50, "Hz", "Notch filter frequency. Helmet cavity resonance.")}
+              ${this.vocoderSlider("drive", "drive", 0, 0.3, 0.01, "", "Soft saturation amount. Adds subtle grit.")}
+            </div>
           </div>
         </div>
       </div>
@@ -404,11 +405,15 @@ export class DebugPanel {
   ): string {
     const val = this.vocoderParams[id];
     return `
-      <div class="debug-row">
-        <span title="${tooltip}">${label}</span>
-        <span class="debug-value" data-voc-val="${id}">${val}${unit}</span>
-        <input type="range" id="debug-voc-${id}" class="debug-range"
-          min="${min}" max="${max}" step="${step}" value="${val}" data-unit="${unit}">
+      <div class="debug-row debug-row--modal">
+        <div class="debug-row-meta">
+          <span class="debug-row-label" title="${tooltip}">${label}</span>
+          <span class="debug-value" data-voc-val="${id}">${val}${unit}</span>
+        </div>
+        <div class="debug-row-control">
+          <input type="range" id="debug-voc-${id}" class="debug-range"
+            min="${min}" max="${max}" step="${step}" value="${val}" data-unit="${unit}">
+        </div>
       </div>`;
   }
 }
