@@ -102,6 +102,33 @@ body {
   padding: 8px 10px 10px;
 }
 
+.debug-model-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.debug-model-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.debug-model-columns .debug-row {
+  min-width: 0;
+  gap: 6px;
+  line-height: 1.45;
+}
+
+.debug-model-columns .debug-row span:last-child {
+  min-width: 0;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .debug-section--modal {
   padding: 0;
 }

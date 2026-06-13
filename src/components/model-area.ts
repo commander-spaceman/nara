@@ -19,7 +19,7 @@ type BoundsMode = "normal" | "heavy";
 type AnimationKey = "idle";
 
 export interface ModelDebugSnapshot {
-  state: "loading" | "ready" | "fallback";
+  fps: number | null;
   activeAnimation: string;
   boundsMode: BoundsMode;
   position: [number, number, number] | null;
@@ -59,6 +59,7 @@ export class ModelArea {
   private clipFrames: number | null = null;
   private trackCount: number | null = null;
   private lastDebugEmit = 0;
+  private fps: number | null = null;
 
   constructor(
     container: HTMLElement,
@@ -71,7 +72,7 @@ export class ModelArea {
   async mount(): Promise<void> {
     this.container.innerHTML = "";
     document.addEventListener("keydown", this.onKeyDown);
-    this.emitDebugSnapshot(true, "loading");
+    this.emitDebugSnapshot(true);
 
     const sceneManager = new SceneManager();
     this.sceneManager = sceneManager;
@@ -101,10 +102,11 @@ export class ModelArea {
 
     sceneManager.start((dt) => {
       this.mixer?.update(dt);
+      this.fps = dt > 0 ? Math.round(1 / dt) : null;
       if (this.boundsMode === "heavy") {
         this.updateDebugBounds();
-        this.emitDebugSnapshot();
       }
+      this.emitDebugSnapshot();
     });
   }
 
@@ -184,7 +186,7 @@ export class ModelArea {
     this.updateFitReference();
 
     this.fitModelToContainer();
-    this.emitDebugSnapshot(true, "ready");
+    this.emitDebugSnapshot(true);
   }
 
   private fitModelToContainer(): void {
@@ -497,13 +499,10 @@ export class ModelArea {
     this.container.innerHTML = `
       <img class="placeholder-model" src="${quarianPlaceholder}" alt="Nara placeholder" />
     `;
-    this.emitDebugSnapshot(true, "fallback");
+    this.emitDebugSnapshot(true);
   }
 
-  private emitDebugSnapshot(
-    force = false,
-    state: ModelDebugSnapshot["state"] = this.modelGroup ? "ready" : "fallback",
-  ): void {
+  private emitDebugSnapshot(force = false): void {
     if (!this.onDebugChange) return;
     const now = performance.now();
     if (!force && now - this.lastDebugEmit < 200) return;
@@ -517,7 +516,7 @@ export class ModelArea {
     }
 
     this.onDebugChange({
-      state,
+      fps: this.fps,
       activeAnimation: this.activeAnimation,
       boundsMode: this.boundsMode,
       position: this.modelGroup

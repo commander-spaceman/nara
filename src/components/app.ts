@@ -255,12 +255,12 @@ export class App {
     snapshot: ModelDebugSnapshot,
   ): Partial<Record<string, string>> {
     return {
-      modelState: snapshot.state,
+      fps: snapshot.fps != null ? `${snapshot.fps}` : "-",
       activeAnimation: snapshot.activeAnimation,
       boundsMode: snapshot.boundsMode,
       modelPosition: this.formatTriple(snapshot.position),
-      modelRotation: this.formatTriple(snapshot.rotation, "deg"),
-      modelScale: this.formatTriple(snapshot.scale),
+      modelRotation: this.formatTriple(snapshot.rotation),
+      modelScale: snapshot.scale != null ? snapshot.scale[0].toFixed(2) : "-",
       meshSize: this.formatTriple(snapshot.modelSize),
       frameSize: snapshot.projectedFrame
         ? `${Math.round(snapshot.projectedFrame.width)} x ${Math.round(snapshot.projectedFrame.height)} px`
@@ -280,10 +280,13 @@ export class App {
   private formatTriple(
     values: [number, number, number] | null,
     unit = "",
+    trailingUnit = false,
   ): string {
     if (!values) return "-";
-    const suffix = unit ? ` ${unit}` : "";
-    return values.map((value) => `${value.toFixed(2)}${suffix}`).join(", ");
+    const formatted = values.map((value) => value.toFixed(2)).join(", ");
+    if (!unit) return formatted;
+    if (trailingUnit) return `${formatted} ${unit}`;
+    return values.map((value) => `${value.toFixed(2)} ${unit}`).join(", ");
   }
 
   private el(id: string): HTMLElement {

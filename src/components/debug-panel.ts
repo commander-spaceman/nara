@@ -16,7 +16,7 @@ interface DebugData {
   audioDuration: string;
   audioSize: string;
   ttsLatency: string;
-  modelState: string;
+  fps: string;
   activeAnimation: string;
   boundsMode: string;
   modelPosition: string;
@@ -85,7 +85,7 @@ export class DebugPanel {
       audioDuration: "-",
       audioSize: "-",
       ttsLatency: "-",
-      modelState: "loading",
+      fps: "-",
       activeAnimation: "-",
       boundsMode: "normal",
       modelPosition: "-",
@@ -273,7 +273,7 @@ export class DebugPanel {
       "audio-duration": this.data.audioDuration,
       "audio-size": this.data.audioSize,
       "tts-latency": this.data.ttsLatency,
-      "model-state": this.data.modelState,
+      fps: this.data.fps,
       "active-animation": this.data.activeAnimation,
       "bounds-mode": this.data.boundsMode,
       "model-position": this.data.modelPosition,
@@ -347,22 +347,34 @@ export class DebugPanel {
         </div>
         <div class="debug-section debug-section--bottom">
           <div class="debug-section-title">model 3d</div>
-          <div class="debug-row"><span>state</span><span data-debug="model-state">${d.modelState}</span></div>
-          <div class="debug-row"><span>anim</span><span data-debug="active-animation">${d.activeAnimation}</span></div>
-          <div class="debug-row"><span>bounds</span><span data-debug="bounds-mode">${d.boundsMode}</span></div>
-          <div class="debug-row"><span>position</span><span data-debug="model-position">${d.modelPosition}</span></div>
-          <div class="debug-row"><span>rotation</span><span data-debug="model-rotation">${d.modelRotation}</span></div>
-          <div class="debug-row"><span>scale</span><span data-debug="model-scale">${d.modelScale}</span></div>
-          <div class="debug-row"><span>mesh size</span><span data-debug="mesh-size">${d.meshSize}</span></div>
-          <div class="debug-row"><span>frame</span><span data-debug="frame-size">${d.frameSize}</span></div>
-          <div class="debug-row"><span>clip</span><span data-debug="clip-info">${d.clipInfo}</span></div>
-          <div class="debug-row"><span>fit ref</span><span data-debug="reference-size">${d.referenceSize}</span></div>
-          <div class="debug-row"><span>bbox size</span><span data-debug="bbox-size">${d.bboxSize}</span></div>
-          <div class="debug-row"><span>bbox ctr</span><span data-debug="bbox-center">${d.bboxCenter}</span></div>
-          <div class="debug-row"><span>bbox min</span><span data-debug="bbox-min">${d.bboxMin}</span></div>
-          <div class="debug-row"><span>bbox max</span><span data-debug="bbox-max">${d.bboxMax}</span></div>
+          <div class="debug-model-columns">
+            <div class="debug-model-column">
+              ${this.debugField("fps", "fps", d.fps, "Current render frames per second.")}
+              ${this.debugField("anim", "active-animation", d.activeAnimation, "Current active animation clip.")}
+              ${this.debugField("position", "model-position", d.modelPosition, "Model world position on the X, Y, and Z axes.")}
+              ${this.debugField("rotation", "model-rotation", d.modelRotation, "Model rotation on the X, Y, and Z axes.")}
+              ${this.debugField("scale", "model-scale", d.modelScale, "Uniform scale factor applied to the model.")}
+            </div>
+            <div class="debug-model-column debug-model-column--bounds">
+              ${this.debugField("bounds", "bounds-mode", d.boundsMode, "Current bounds calculation mode.")}
+              ${this.debugField("frame", "frame-size", d.frameSize, "Projected on-screen frame size in pixels.")}
+              ${this.debugField("bbox size", "bbox-size", d.bboxSize, "Bounding box size across X, Y, and Z.")}
+              ${this.debugField("bbox ctr", "bbox-center", d.bboxCenter, "Bounding box center point.")}
+              ${this.debugField("bbox min", "bbox-min", d.bboxMin, "Bounding box minimum corner.")}
+              ${this.debugField("bbox max", "bbox-max", d.bboxMax, "Bounding box maximum corner.")}
+            </div>
+          </div>
         </div>
       `;
+  }
+
+  private debugField(
+    label: string,
+    key: string,
+    value: string,
+    tooltip: string,
+  ): string {
+    return `<div class="debug-row"><span title="${tooltip}">${label}</span><span data-debug="${key}">${value}</span></div>`;
   }
 
   private renderHelmetFxModal(): void {
