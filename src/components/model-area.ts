@@ -7,6 +7,8 @@ const FRAME_PADDING_X = 0.06;
 const FRAME_PADDING_Y = 0.05;
 const MIN_FRAME_PADDING_PX = 8;
 
+type BoundsMode = "normal" | "heavy";
+
 export class ModelArea {
   private container: HTMLElement;
   private sceneManager: SceneManager | null = null;
@@ -20,6 +22,7 @@ export class ModelArea {
   private modelSize = new THREE.Vector3();
   private fitReferenceCenter = new THREE.Vector3();
   private fitReferenceSize = new THREE.Vector3();
+  private boundsMode: BoundsMode = "normal";
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -27,6 +30,7 @@ export class ModelArea {
 
   async mount(): Promise<void> {
     this.container.innerHTML = "";
+    document.addEventListener("keydown", this.onKeyDown);
 
     const sceneManager = new SceneManager();
     this.sceneManager = sceneManager;
@@ -52,7 +56,9 @@ export class ModelArea {
 
     sceneManager.start((dt) => {
       this.mixer?.update(dt);
-      this.updateDebugBounds();
+      if (this.boundsMode === "heavy") {
+        this.updateDebugBounds();
+      }
     });
   }
 
@@ -111,6 +117,7 @@ export class ModelArea {
     helperMaterial.transparent = true;
     helperMaterial.opacity = 0.9;
     sceneManager.scene.add(this.boundingBoxHelper);
+    this.applyBoundsMode();
 
     const box = new THREE.Box3().setFromObject(model.scene);
     box.getSize(this.modelSize);
@@ -164,6 +171,37 @@ export class ModelArea {
     camera.updateMatrixWorld();
     this.crosshair?.position.copy(framingTarget);
     this.updateDebugBounds();
+  }
+
+  private onKeyDown = (e: KeyboardEvent): void => {
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (e.key === "h" && e.ctrlKey === false && e.metaKey === false) {
+      e.preventDefault();
+      this.boundsMode = this.boundsMode === "normal" ? "heavy" : "normal";
+      this.applyBoundsMode();
+      console.log(
+        `%c[3d]%c bounds mode: ${this.boundsMode}`,
+        "color: #5fd0ff; font-weight: bold",
+        "color: #ccc",
+      );
+      if (this.boundsMode === "heavy") {
+        this.updateDebugBounds();
+      }
+    }
+  };
+
+  private applyBoundsMode(): void {
+    const debugVisible = this.boundsMode === "heavy";
+    if (this.crosshair) {
+      this.crosshair.visible = debugVisible;
+    }
+    if (this.boundingBox) {
+      this.boundingBox.visible = debugVisible;
+    }
+    if (this.boundingBoxHelper) {
+      this.boundingBoxHelper.visible = debugVisible;
+    }
   }
 
   private updateDebugBounds(): void {
@@ -315,6 +353,7 @@ export class ModelArea {
 
   dispose(): void {
     this.removeResize?.();
+    document.removeEventListener("keydown", this.onKeyDown);
     if (this.sceneManager) {
       if (this.modelGroup) {
         this.sceneManager.scene.remove(this.modelGroup);
