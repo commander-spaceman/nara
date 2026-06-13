@@ -248,7 +248,16 @@ export class ModelArea {
       this.boundingVolume.min.copy(worldMin);
       this.boundingVolume.max.copy(worldMax);
     } else {
-      this.boundingVolume.setFromObject(this.modelGroup, true);
+      const scale = this.modelGroup.scale.x;
+      const worldCenter = this.fitReferenceCenter
+        .clone()
+        .multiplyScalar(scale)
+        .add(this.modelGroup.position);
+      const halfSize = this.fitReferenceSize
+        .clone()
+        .multiplyScalar(scale * 0.5);
+      this.boundingVolume.min.copy(worldCenter).sub(halfSize);
+      this.boundingVolume.max.copy(worldCenter).add(halfSize);
     }
 
     this.updateBoundsRectangle(this.boundingVolume);
