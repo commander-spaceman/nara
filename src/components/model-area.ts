@@ -132,13 +132,17 @@ export class ModelArea {
     const camera = this.sceneManager.camera;
     this.sceneManager.setSize(w, h);
 
+    const currentScale = this.modelGroup.scale.x || 1;
     const rawBox = new THREE.Box3().setFromObject(this.modelGroup, true);
     const rawCenter = new THREE.Vector3();
     rawBox.getCenter(rawCenter);
     const rawSize = new THREE.Vector3();
     rawBox.getSize(rawSize);
-
-    this.modelGroup.position.set(-rawCenter.x, -rawCenter.y, -rawCenter.z);
+    const localCenter = rawCenter
+      .clone()
+      .sub(this.modelGroup.position)
+      .divideScalar(currentScale);
+    const localSize = rawSize.clone().divideScalar(currentScale);
 
     const fovRad = camera.fov * (Math.PI / 180);
     const dist = camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
@@ -148,11 +152,13 @@ export class ModelArea {
     const fitW = visibleWidth * MARGIN;
     const fitH = visibleHeight * MARGIN;
 
-    const sx = rawSize.x > 0 ? fitW / rawSize.x : 1;
-    const sy = rawSize.y > 0 ? fitH / rawSize.y : 1;
+    const sx = localSize.x > 0 ? fitW / localSize.x : 1;
+    const sy = localSize.y > 0 ? fitH / localSize.y : 1;
     const scale = Math.min(sx, sy);
 
     this.modelGroup.scale.setScalar(scale);
+    this.modelGroup.position.copy(localCenter).multiplyScalar(-scale);
+    this.modelGroup.updateWorldMatrix(true, true);
 
     const scaledBox = new THREE.Box3().setFromObject(this.modelGroup, true);
     this.boundingVolume.copy(scaledBox);
