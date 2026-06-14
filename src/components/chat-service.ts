@@ -156,6 +156,14 @@ export class ChatService {
     }
     const c = `${msgs.length / 2}`;
     this.debugPanel.update({ sent: c, received: c });
+
+    const lastUser = msgs.filter((m) => m.role === "user").pop();
+    if (lastUser) {
+      resetColdCache();
+      refreshColdMemory(lastUser.content, Math.floor(msgs.length / 2)).catch(
+        () => {},
+      );
+    }
   }
 
   resetSession(): void {
