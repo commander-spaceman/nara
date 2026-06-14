@@ -40,6 +40,7 @@ describe("Components & Layout", () => {
     const app = readFileSync(join(compDir, "app.ts"), "utf-8");
     const imports = [
       "DebugPanel",
+      "getCurrentWindow",
       "ModelArea",
       "SubtitleBox",
       "Controls",
@@ -47,6 +48,7 @@ describe("Components & Layout", () => {
       "ChatService",
       "AudioPlayer",
       "startSession",
+      "endSession",
     ];
     for (const name of imports) {
       it(`imports ${name}`, () => {
@@ -111,6 +113,51 @@ describe("Components & Layout", () => {
     });
     it("creates App", () => {
       expect(main).toContain("import { App }");
+    });
+  });
+
+  describe("chat commands", () => {
+    const app = readFileSync(join(compDir, "app.ts"), "utf-8");
+    const modal = readFileSync(join(compDir, "session-modal.ts"), "utf-8");
+
+    it("supports /help", () => {
+      expect(app).toContain('text === "/help"');
+      expect(app).toContain("this.sessionModal.showHelp()");
+    });
+
+    it("supports /exit", () => {
+      expect(app).toContain('text === "/exit"');
+      expect(app).toContain("getCurrentWindow().close()");
+    });
+
+    it("supports /new", () => {
+      expect(app).toContain('text === "/new"');
+      expect(app).toContain("startFreshSession()");
+    });
+
+    it("supports /debug", () => {
+      expect(app).toContain('text === "/debug"');
+      expect(app).toContain("this.debugPanel.toggle()");
+    });
+
+    it("supports /session", () => {
+      expect(app).toContain('text === "/session"');
+      expect(app).toContain("session ${getSessionId().slice(0, 10)}");
+    });
+
+    it("keeps only /history and removes /sessions", () => {
+      expect(app).toContain('text === "/history"');
+      expect(app).not.toContain('text === "/sessions"');
+    });
+
+    it("shows help content in the modal", () => {
+      expect(modal).toContain("showHelp()");
+      expect(modal).toContain("chat commands");
+      expect(modal).toContain("/new");
+      expect(modal).toContain("/debug");
+      expect(modal).toContain("/session");
+      expect(modal).toContain("/exit");
+      expect(modal).not.toContain("/sessions");
     });
   });
 

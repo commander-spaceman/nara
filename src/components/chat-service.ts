@@ -132,4 +132,19 @@ export class ChatService {
     const c = `${msgs.length / 2}`;
     this.debugPanel.update({ sent: c, received: c });
   }
+
+  resetSession(): void {
+    this.history.length = 0;
+    this.totalInputTokens = 0;
+    this.totalOutputTokens = 0;
+    this.debugPanel.update({
+      sent: "0",
+      received: "0",
+      inputTokens: "0",
+      outputTokens: "0",
+      cacheHits: "0",
+      latency: "-",
+      ttsLatency: "-",
+    });
+  }
 }

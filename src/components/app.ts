@@ -1,4 +1,5 @@
 import { DebugPanel } from "./debug-panel";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ModelArea, type ModelDebugSnapshot } from "./model-area";
 import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
@@ -172,7 +173,10 @@ export class App {
     });
 
     this.sessionModal = new SessionModal(this.el("modal-overlay"), {
-      onSessionLoad: (msgs) => this.chatService.loadSession(msgs),
+      onSessionLoad: (msgs) => {
+        this.history = msgs;
+        this.chatService.loadSession(msgs);
+      },
     });
     this.sessionModal.mount();
 
@@ -248,16 +252,70 @@ export class App {
     }
   }
 
-  private handleSubmit(text: string): void {
-    if (text === "/history" || text === "/sessions") {
+  private async handleSubmit(text: string): Promise<void> {
+    if (text === "/help") {
+      this.sessionModal.showHelp();
+      return;
+    }
+    if (text === "/history") {
       this.sessionModal.show();
       return;
     }
-    if (text.startsWith("/history ") || text.startsWith("/sessions ")) {
-      this.subtitleBox.setText("use /history to browse sessions");
+    if (text === "/new") {
+      await this.startFreshSession();
+      return;
+    }
+    if (text === "/debug") {
+      this.debugPanel.toggle();
+      return;
+    }
+    if (text === "/session") {
+      const messageCount = this.history.length;
+      this.subtitleBox.setText(
+        `session ${getSessionId().slice(0, 10)}: ${messageCount} msgs, ${this.formatUptime()}`,
+      );
+      return;
+    }
+    if (text === "/exit") {
+      await endSession().catch(() => {});
+      await getCurrentWindow().close();
+      return;
+    }
+    if (
+      text.startsWith("/help ") ||
+      text.startsWith("/history ") ||
+      text.startsWith("/new ") ||
+      text.startsWith("/debug ") ||
+      text.startsWith("/session ") ||
+      text.startsWith("/exit ")
+    ) {
+      this.subtitleBox.setText(
+        "use /help, /history, /new, /debug, /session, or /exit",
+      );
       return;
     }
     this.chatService.submit(text);
+  }
+
+  private async startFreshSession(): Promise<void> {
+    await endSession().catch(() => {});
+    this.audioPlayer.stop();
+    this.clearTranscriptionHideTimer();
+    this.inputBar.clearMicStatus();
+    this.history.length = 0;
+    this.totalInputTokens = 0;
+    this.totalOutputTokens = 0;
+    this.sessionStart = Date.now();
+    this.chatService.resetSession();
+    await startSession().catch(() => {});
+    this.debugPanel.update({
+      uptime: this.formatUptime(),
+      sessionId: getSessionId().slice(0, 10),
+      startedAt: new Date().toTimeString().slice(0, 8),
+    });
+    this.subtitleBox.setText(
+      `started new session ${getSessionId().slice(0, 10)}`,
+    );
   }
 
   private formatUptime(): string {
