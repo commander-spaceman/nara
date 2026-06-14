@@ -6,6 +6,32 @@ let coldSummary: string | null = null;
 let lastColdRefresh = -1;
 let refreshLock = false;
 
+const TOKEN_BUDGET = 1000;
+const CHARS_PER_TOKEN = 4;
+
+function estimateTokens(messages: Message[]): number {
+  let total = 0;
+  for (const m of messages) {
+    total += Math.ceil(m.content.length / CHARS_PER_TOKEN);
+  }
+  return total;
+}
+
+function trimHistory(historyMessages: Message[], maxTokens: number): Message[] {
+  if (historyMessages.length === 0) return [];
+  const kept: Message[] = [];
+  let tokenCount = 0;
+  for (let i = historyMessages.length - 1; i >= 0; i--) {
+    const msgTokens = Math.ceil(
+      historyMessages[i].content.length / CHARS_PER_TOKEN,
+    );
+    if (tokenCount + msgTokens > maxTokens && kept.length > 0) break;
+    tokenCount += msgTokens;
+    kept.unshift(historyMessages[i]);
+  }
+  return kept;
+}
+
 async function extractKeywords(text: string): Promise<string[]> {
   try {
     const result = await chat([
@@ -47,11 +73,18 @@ export async function assembleContext(
     });
   }
 
-  messages.push(...history.slice(-10));
+  const fixedTokens = estimateTokens(messages);
+  const userTokenEstimate = Math.ceil(userMessage.length / CHARS_PER_TOKEN);
+  const historyBudget = TOKEN_BUDGET - fixedTokens - userTokenEstimate - 50;
+
+  const trimmedHistory = trimHistory(history, Math.max(historyBudget, 200));
+  messages.push(...trimmedHistory);
+
   messages.push({ role: "user", content: userMessage });
 
+  const total = estimateTokens(messages);
   console.log(
-    `%cCTX %c→ %c${messages.length} msgs %cassembled`,
+    `%cCTX %c→ %c${messages.length} msgs %c~${total} tokens`,
     "color: #d0a0ff; font-weight: bold",
     "color: #aaa",
     "color: #f0c040; font-weight: bold",

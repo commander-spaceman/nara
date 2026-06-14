@@ -71,18 +71,20 @@ describe("context — assembleContext (non-blocking)", () => {
     expect(last.content).toBe("how are you?");
   });
 
-  it("includes recent history (last 10 messages)", async () => {
+  it("trims history to fit token budget", async () => {
+    const longText = "very long message that takes many tokens ".repeat(20);
     const history: Message[] = [];
-    for (let i = 0; i < 14; i++) {
-      history.push({ role: "user", content: `msg ${i}` });
-      history.push({ role: "assistant", content: `reply ${i}` });
+    for (let i = 0; i < 30; i++) {
+      history.push({ role: "user", content: longText + i });
+      history.push({ role: "assistant", content: longText + i });
     }
 
-    const messages = await assembleContext("latest", history);
-    const historyMsgs = messages.filter(
-      (m) => m.role === "user" && m.content.startsWith("msg"),
+    const messages = await assembleContext("hello", history);
+    const total = messages.reduce(
+      (sum, m) => sum + Math.ceil(m.content.length / 4),
+      0,
     );
-    expect(historyMsgs.length).toBeLessThanOrEqual(5);
+    expect(total).toBeLessThanOrEqual(1050); // within budget + margin
   });
 
   it("does not inject profile section when empty", async () => {
