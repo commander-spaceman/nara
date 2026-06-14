@@ -2,16 +2,6 @@ import * as THREE from "three";
 import { type AnimationState, ANIMATION_KEYS } from "./animation-state";
 import type { LoadedModel } from "./model-loader";
 
-const CROSSFADE_DURATION = 0.3;
-
-interface CrossfadeState {
-  fromGroup: THREE.Group;
-  fromState: AnimationState;
-  toGroup: THREE.Group;
-  toState: AnimationState;
-  elapsed: number;
-}
-
 export class AnimationController {
   readonly modelGroups = new Map<AnimationState, THREE.Group>();
   readonly mixers = new Map<AnimationState, THREE.AnimationMixer>();
@@ -21,7 +11,6 @@ export class AnimationController {
   currentAction: THREE.AnimationAction | null = null;
 
   private scene: THREE.Scene;
-  private crossfade: CrossfadeState | null = null;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -69,29 +58,21 @@ export class AnimationController {
     if (state === this.currentState) return;
     if (!this.modelGroups.has(state)) return;
 
-    this.finishCrossfade();
-
     const fromGroup = this.modelGroups.get(this.currentState)!;
     const toGroup = this.modelGroups.get(state)!;
     const toAction = this.actions.get(state)!;
+    const fromAction = this.actions.get(this.currentState);
 
+    fromAction?.stop();
+    fromGroup.visible = false;
     toGroup.visible = true;
     toAction.reset().play();
-    setGroupOpacity(toGroup, 0);
 
     console.log(
-      `%c[3d]%c crossfade ${this.currentState} → ${state}`,
+      `%c[3d]%c switch ${this.currentState} -> ${state}`,
       "color: #5fd0ff; font-weight: bold",
       "color: #ccc",
     );
-
-    this.crossfade = {
-      fromGroup,
-      fromState: this.currentState,
-      toGroup,
-      toState: state,
-      elapsed: 0,
-    };
 
     this.currentState = state;
     this.currentAction = toAction;
@@ -99,10 +80,6 @@ export class AnimationController {
 
   update(dt: number): void {
     this.mixers.get(this.currentState)?.update(dt);
-    if (this.crossfade) {
-      this.mixers.get(this.crossfade.fromState)?.update(dt);
-    }
-    this.updateCrossfade(dt);
   }
 
   getCurrentClip(): THREE.AnimationClip | null {
@@ -116,7 +93,6 @@ export class AnimationController {
   }
 
   dispose(): void {
-    this.finishCrossfade();
     for (const [state, action] of this.actions) {
       action.stop();
       this.mixers
@@ -136,49 +112,6 @@ export class AnimationController {
     this.modelGroups.clear();
     this.currentAction = null;
   }
-
-  private updateCrossfade(dt: number): void {
-    if (!this.crossfade) return;
-
-    this.crossfade.elapsed += dt;
-    const t = Math.min(this.crossfade.elapsed / CROSSFADE_DURATION, 1);
-
-    setGroupOpacity(this.crossfade.fromGroup, 1 - t);
-    setGroupOpacity(this.crossfade.toGroup, t);
-
-    if (t >= 1) {
-      this.finishCrossfade();
-    }
-  }
-
-  private finishCrossfade(): void {
-    if (!this.crossfade) return;
-
-    this.crossfade.fromGroup.visible = false;
-    setGroupOpacity(this.crossfade.fromGroup, 1);
-    setGroupOpacity(this.crossfade.toGroup, 1);
-
-    const fromAction = this.actions.get(this.crossfade.fromState);
-    fromAction?.stop();
-
-    this.crossfade = null;
-  }
-}
-
-function setGroupOpacity(group: THREE.Group, opacity: number): void {
-  group.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
-
-    const materials = Array.isArray(mesh.material)
-      ? mesh.material
-      : [mesh.material];
-    for (const mat of materials) {
-      mat.transparent = true;
-      mat.opacity = opacity;
-      mat.needsUpdate = true;
-    }
-  });
 }
 
 function disposeGroupResources(group: THREE.Group): void {
