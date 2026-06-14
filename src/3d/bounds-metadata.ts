@@ -25,6 +25,9 @@ export interface BoundsManifest {
 
 const DEFAULT_BOUNDS_MANIFEST: BoundsManifest = {
   idle: "/build/bounds/Idle.bounds.json",
+  talking: "/build/bounds/Talking.bounds.json",
+  waving: "/build/bounds/Waving.bounds.json",
+  dance: "/build/bounds/Dance.bounds.json",
 };
 
 export async function loadBoundsMetadata(

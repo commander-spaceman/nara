@@ -7,6 +7,24 @@
       "model": "Idle.glb",
       "output": "Idle.bounds.json",
       "animations": ["idle"]
+    },
+    {
+      "key": "talking",
+      "model": "Talking.glb",
+      "output": "Talking.bounds.json",
+      "animations": ["talking"]
+    },
+    {
+      "key": "waving",
+      "model": "Waving.glb",
+      "output": "Waving.bounds.json",
+      "animations": ["waving"]
+    },
+    {
+      "key": "dance",
+      "model": "Dance.glb",
+      "output": "Dance.bounds.json",
+      "animations": ["dance"]
     }
   ]
 }

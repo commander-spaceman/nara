@@ -18,7 +18,7 @@ const FRAME_PADDING_Y = 0.05;
 const MIN_FRAME_PADDING_PX = 8;
 
 type BoundsMode = "normal" | "heavy";
-type AnimationKey = "idle";
+type AnimationKey = "idle" | "talking" | "waving" | "dance";
 
 const ANIMATION_STATES: AnimationState[] = [
   "idle",
@@ -67,7 +67,7 @@ export class ModelArea {
   private fitReferenceCenter = new THREE.Vector3();
   private fitReferenceSize = new THREE.Vector3();
   private boundsMode: BoundsMode = "normal";
-  private boundsMetadata: ModelBoundsMetadata | null = null;
+  private boundsMetadata = new Map<string, ModelBoundsMetadata>();
   private lastSnapshotTime = performance.now();
   private snapshotFrames = 0;
   private currentFps = 0;
@@ -99,7 +99,7 @@ export class ModelArea {
         loadModels(),
         loadBoundsMetadata(),
       ]);
-      this.boundsMetadata = boundsMetadata.get("idle") ?? null;
+      this.boundsMetadata = boundsMetadata;
 
       const idleModel = models.get("idle");
       if (!idleModel || idleModel.animations.length === 0) {
@@ -160,7 +160,11 @@ export class ModelArea {
     this.currentState = state;
     this.currentAction = this.actions.get(state) ?? null;
     this.currentAction?.reset().play();
-    this.activeAnimation = "idle";
+    this.activeAnimation = state;
+    this.updateFitReference();
+    if (this.boundsMode === "normal") {
+      this.updateNormalBounds();
+    }
   }
 
   private mixer(state: AnimationState): THREE.AnimationMixer | undefined {
@@ -293,10 +297,8 @@ export class ModelArea {
   }
 
   private getActiveAnimationBounds(): AnimationBoundsData | null {
-    return getAnimationBounds(
-      this.boundsMetadata ?? undefined,
-      this.activeAnimation,
-    );
+    const meta = this.boundsMetadata.get(this.activeAnimation);
+    return getAnimationBounds(meta, this.activeAnimation);
   }
 
   private updateFitReference(): void {
