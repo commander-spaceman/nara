@@ -1,6 +1,7 @@
 import type { Message } from "../modules/llm";
-import { chat, getApiKey, suggestReply } from "../modules/llm";
-import { saveMessage, getSessionId } from "../modules/memory";
+import { chat, getApiKey, suggestReply, extractFacts } from "../modules/llm";
+import { saveMessage, getSessionId, upsertProfile } from "../modules/memory";
+import { assembleContext, resetColdCache } from "../modules/context";
 import { synthesize } from "../modules/tts";
 import { detectHint } from "../3d/animation-state";
 import { SubtitleBox } from "./subtitle-box";
@@ -17,6 +18,7 @@ export class ChatService {
   private totalInputTokens: number;
   private totalOutputTokens: number;
   private ttsModel: string;
+  private lastFactExtraction = 0;
 
   constructor(
     subtitleBox: SubtitleBox,
@@ -48,7 +50,8 @@ export class ChatService {
 
     try {
       const start = performance.now();
-      const result = await chat(text, this.history);
+      const context = await assembleContext(text, this.history);
+      const result = await chat(context);
       const latency = Math.round(performance.now() - start);
       this.totalInputTokens += result.promptTokens;
       this.totalOutputTokens += result.completionTokens;
@@ -68,6 +71,8 @@ export class ChatService {
         cacheHits: `${result.cacheHits}`,
         latency: `${latency}ms`,
       });
+
+      this.maybeExtractFacts(count);
 
       const ttsStart = performance.now();
 
@@ -137,6 +142,8 @@ export class ChatService {
     this.history.length = 0;
     this.totalInputTokens = 0;
     this.totalOutputTokens = 0;
+    this.lastFactExtraction = 0;
+    resetColdCache();
     this.debugPanel.update({
       sent: "0",
       received: "0",
@@ -146,5 +153,17 @@ export class ChatService {
       latency: "-",
       ttsLatency: "-",
     });
+  }
+
+  private maybeExtractFacts(exchangeCount: number): void {
+    if (exchangeCount - this.lastFactExtraction < 5) return;
+    this.lastFactExtraction = exchangeCount;
+    extractFacts(this.history)
+      .then((facts) => {
+        for (const { key, value } of facts) {
+          upsertProfile(key, value).catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 }
