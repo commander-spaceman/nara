@@ -111,10 +111,13 @@ export async function refreshColdMemory(
 
     const seen = new Set<string>();
     const relevant: string[] = [];
+    const since = Math.floor(Date.now() / 1000) - COLD_RECENCY_SECS;
 
-    for (const kw of keywords) {
-      const since = Math.floor(Date.now() / 1000) - COLD_RECENCY_SECS;
-      const results = await searchMessages(kw, 5, since).catch(() => []);
+    const allResults = await Promise.all(
+      keywords.map((kw) => searchMessages(kw, 5, since).catch(() => [])),
+    );
+
+    for (const results of allResults) {
       for (const r of results) {
         const dedupe = `${r.role}:${r.content.slice(0, 50)}`;
         if (seen.has(dedupe)) continue;
