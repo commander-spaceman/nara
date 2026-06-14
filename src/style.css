@@ -117,8 +117,8 @@ body {
 
 .debug-model-columns .debug-row {
   min-width: 0;
-  gap: 6px;
-  line-height: 1.45;
+  gap: 8px;
+  line-height: 1.8;
 }
 
 .debug-model-columns .debug-row span:last-child {
