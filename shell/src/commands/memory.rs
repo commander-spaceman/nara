@@ -75,9 +75,10 @@ pub fn memory_search(
     db: State<'_, Database>,
     query: String,
     limit: u32,
+    since: Option<i64>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let results = db
-        .search_messages(&query, limit)
+        .search_messages(&query, limit, since)
         .map_err(|e| e.to_string())?;
     let json = results
         .into_iter()

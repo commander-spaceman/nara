@@ -32,6 +32,8 @@ function trimHistory(historyMessages: Message[], maxTokens: number): Message[] {
   return kept;
 }
 
+const COLD_RECENCY_SECS = 30 * 24 * 60 * 60;
+
 async function extractKeywords(text: string): Promise<string[]> {
   try {
     const result = await chat([
@@ -111,7 +113,8 @@ export async function refreshColdMemory(
     const relevant: string[] = [];
 
     for (const kw of keywords) {
-      const results = await searchMessages(kw, 5).catch(() => []);
+      const since = Math.floor(Date.now() / 1000) - COLD_RECENCY_SECS;
+      const results = await searchMessages(kw, 5, since).catch(() => []);
       for (const r of results) {
         const dedupe = `${r.role}:${r.content.slice(0, 50)}`;
         if (seen.has(dedupe)) continue;

@@ -191,19 +191,34 @@ impl Database {
         &self,
         query: &str,
         limit: u32,
+        since: Option<i64>,
     ) -> Result<Vec<(String, String, String, i64)>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let sanitized = query.replace(['"', '\'', '\\'], "");
         let fts_query = format!("\"{}\"", sanitized);
-        let mut stmt = conn.prepare(
+
+        let mut sql = String::from(
             "SELECT m.session_id, m.role, m.content, m.created_at
              FROM messages m
              JOIN messages_fts fts ON m.id = fts.rowid
-             WHERE messages_fts MATCH ?1
-             ORDER BY m.created_at DESC
-             LIMIT ?2",
-        )?;
-        let rows = stmt.query_map(params![fts_query, limit], |row| {
+             WHERE messages_fts MATCH ?1",
+        );
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(fts_query)];
+
+        if let Some(cutoff) = since {
+            sql.push_str(" AND m.created_at >= ?2");
+            param_values.push(Box::new(cutoff));
+            sql.push_str(" ORDER BY m.created_at DESC LIMIT ?3");
+            param_values.push(Box::new(limit));
+        } else {
+            sql.push_str(" ORDER BY m.created_at DESC LIMIT ?2");
+            param_values.push(Box::new(limit));
+        }
+
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params_refs.as_slice(), |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,

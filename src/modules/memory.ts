@@ -60,8 +60,9 @@ export async function saveMessage(
 export async function searchMessages(
   query: string,
   limit = 20,
+  since?: number,
 ): Promise<MemoryMessage[]> {
-  return invoke("memory_search", { query, limit });
+  return invoke("memory_search", { query, limit, since });
 }
 
 export interface SessionInfo {
