@@ -35,6 +35,8 @@ export class ModelArea {
   private animCtrl: AnimationController | null = null;
   private boundsEng: BoundsEngine | null = null;
   private removeResize: (() => void) | null = null;
+  private guidesVisible = true;
+  private heavyBoundsEnabled = false;
 
   private lastSnapshotTime = performance.now();
   private snapshotFrames = 0;
@@ -53,10 +55,10 @@ export class ModelArea {
   async mount(): Promise<void> {
     this.container.classList.add("loading");
     this.container.innerHTML = "";
-    document.addEventListener("keydown", this.onKeyDown);
 
     const sceneManager = new SceneManager();
     this.sceneManager = sceneManager;
+    sceneManager.setBackgroundVisible(this.guidesVisible);
     this.container.appendChild(sceneManager.canvas);
 
     this.removeResize = createResizeHandler(this.container, () => {
@@ -79,6 +81,9 @@ export class ModelArea {
         boundsMetadata,
       );
       this.boundsEng = boundsEng;
+      boundsEng.setGuidesVisible(this.guidesVisible);
+      boundsEng.boundsMode = this.heavyBoundsEnabled ? "heavy" : "normal";
+      boundsEng.applyBoundsMode();
 
       const idleModel = models.get("idle");
       if (!idleModel || idleModel.animations.length === 0) {
@@ -147,6 +152,30 @@ export class ModelArea {
     this.fitModelToContainer();
   }
 
+  setGuidesVisible(visible: boolean): void {
+    this.guidesVisible = visible;
+    this.sceneManager?.setBackgroundVisible(visible);
+    this.boundsEng?.setGuidesVisible(visible);
+    if (!visible) {
+      this.heavyBoundsEnabled = false;
+      if (this.boundsEng) {
+        this.boundsEng.boundsMode = "normal";
+        this.boundsEng.applyBoundsMode();
+      }
+    }
+  }
+
+  setHeavyBoundsEnabled(enabled: boolean): void {
+    this.heavyBoundsEnabled = enabled;
+    if (!this.boundsEng || !this.animCtrl) return;
+    this.boundsEng.boundsMode = enabled ? "heavy" : "normal";
+    this.boundsEng.applyBoundsMode();
+    this.boundsEng.updateBounds(
+      this.animCtrl.modelGroups,
+      this.animCtrl.currentState,
+    );
+  }
+
   private fitModelToContainer(): void {
     if (!this.sceneManager || !this.animCtrl || !this.boundsEng) return;
 
@@ -160,27 +189,6 @@ export class ModelArea {
       this.animCtrl.currentState,
     );
   }
-
-  private onKeyDown = (e: KeyboardEvent): void => {
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-    if (e.key === "h" && e.ctrlKey === false && e.metaKey === false) {
-      e.preventDefault();
-      if (!this.boundsEng || !this.animCtrl) return;
-      this.boundsEng.boundsMode =
-        this.boundsEng.boundsMode === "normal" ? "heavy" : "normal";
-      this.boundsEng.applyBoundsMode();
-      console.log(
-        `%c[3d]%c bounds mode: ${this.boundsEng.boundsMode}`,
-        "color: #5fd0ff; font-weight: bold",
-        "color: #ccc",
-      );
-      this.boundsEng.updateBounds(
-        this.animCtrl.modelGroups,
-        this.animCtrl.currentState,
-      );
-    }
-  };
 
   private emitDebugSnapshot(): void {
     if (!this.onDebugSnapshot || !this.animCtrl || !this.boundsEng) return;
@@ -247,7 +255,6 @@ export class ModelArea {
     this.boundsEng = null;
     this.removeResize?.();
     this.removeResize = null;
-    document.removeEventListener("keydown", this.onKeyDown);
     this.container.innerHTML = `
       <div class="placeholder-wrapper">
         <img class="placeholder-model" src="${quarianPlaceholder}" alt="Nara placeholder" />
@@ -261,7 +268,6 @@ export class ModelArea {
 
   dispose(): void {
     this.removeResize?.();
-    document.removeEventListener("keydown", this.onKeyDown);
     if (this.sceneManager) {
       this.boundsEng?.disposeDebugObjects();
       this.animCtrl?.removeFromScene();

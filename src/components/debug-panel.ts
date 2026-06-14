@@ -41,6 +41,8 @@ interface DebugPanelCallbacks {
   onTtsModelChange: (model: string) => void;
   onSttModelChange: (model: string) => void;
   onVocoderChange: (params: HelmetFXParams) => void;
+  onModelGuidesToggle: (visible: boolean) => void;
+  onModelHeavyBoundsToggle: (enabled: boolean) => void;
 }
 
 export class DebugPanel {
@@ -53,6 +55,8 @@ export class DebugPanel {
   private ttsModels: ModelOption[];
   private sttModels: ModelOption[];
   private callbacks: DebugPanelCallbacks;
+  private modelGuidesVisible = true;
+  private modelHeavyBoundsEnabled = false;
 
   constructor(
     container: HTMLElement,
@@ -176,6 +180,30 @@ export class DebugPanel {
         this.callbacks.onSttModelChange(sttSelect.value),
       );
     }
+    const guidesToggle = this.container.querySelector(
+      "#debug-model-guides",
+    ) as HTMLInputElement | null;
+    if (guidesToggle) {
+      guidesToggle.addEventListener("change", () => {
+        this.modelGuidesVisible = guidesToggle.checked;
+        this.callbacks.onModelGuidesToggle(this.modelGuidesVisible);
+        if (!this.modelGuidesVisible) {
+          this.modelHeavyBoundsEnabled = false;
+          this.callbacks.onModelHeavyBoundsToggle(false);
+        }
+        this.render();
+        this.bindEvents();
+      });
+    }
+    const boundsModeSelect = this.container.querySelector(
+      "#debug-bounds-mode",
+    ) as HTMLSelectElement | null;
+    if (boundsModeSelect) {
+      boundsModeSelect.addEventListener("change", () => {
+        this.modelHeavyBoundsEnabled = boundsModeSelect.value === "heavy";
+        this.callbacks.onModelHeavyBoundsToggle(this.modelHeavyBoundsEnabled);
+      });
+    }
   }
 
   private bindHelmetFxEvents(): void {
@@ -275,7 +303,6 @@ export class DebugPanel {
       "tts-latency": this.data.ttsLatency,
       fps: this.data.fps,
       "active-animation": this.data.activeAnimation,
-      "bounds-mode": this.data.boundsMode,
       "model-position": this.data.modelPosition,
       "model-rotation": this.data.modelRotation,
       "model-scale": this.data.modelScale,
@@ -292,6 +319,15 @@ export class DebugPanel {
       const el = this.container.querySelector(`[data-debug="${field}"]`);
       if (el) el.textContent = value;
     }
+    const boundsModeSelect = this.container.querySelector(
+      "#debug-bounds-mode",
+    ) as HTMLSelectElement | null;
+    if (boundsModeSelect) {
+      boundsModeSelect.value = this.modelHeavyBoundsEnabled
+        ? "heavy"
+        : "normal";
+      boundsModeSelect.disabled = !this.modelGuidesVisible;
+    }
   }
 
   private render(): void {
@@ -306,6 +342,12 @@ export class DebugPanel {
       .map(
         (m) =>
           `<option value="${m.id}" ${m.id === d.sttModel ? "selected" : ""}>${m.label}</option>`,
+      )
+      .join("");
+    const boundsModeOptions = ["normal", "heavy"]
+      .map(
+        (mode) =>
+          `<option value="${mode}" ${mode === d.boundsMode ? "selected" : ""}>${mode}</option>`,
       )
       .join("");
 
@@ -354,9 +396,13 @@ export class DebugPanel {
               ${this.debugField("position", "model-position", d.modelPosition, "Model world position on the X, Y, and Z axes.")}
               ${this.debugField("rotation", "model-rotation", d.modelRotation, "Model rotation on the X, Y, and Z axes.")}
               ${this.debugField("scale", "model-scale", d.modelScale, "Uniform scale factor applied to the model.")}
+              ${this.debugSwitch("guides", "debug-model-guides", this.modelGuidesVisible, "Show or hide the scene background and bounds overlays.")}
             </div>
             <div class="debug-model-column debug-model-column--bounds">
-              ${this.debugField("bounds", "bounds-mode", d.boundsMode, "Current bounds calculation mode.")}
+              <div class="debug-row">
+                <span title="Select the bounds rendering mode.">bounds mode</span>
+                <select id="debug-bounds-mode" class="debug-select" ${this.modelGuidesVisible ? "" : "disabled"}>${boundsModeOptions}</select>
+              </div>
               ${this.debugField("frame", "frame-size", d.frameSize, "Projected on-screen frame size in pixels.")}
               ${this.debugField("bbox size", "bbox-size", d.bboxSize, "Bounding box size across X, Y, and Z.")}
               ${this.debugField("bbox ctr", "bbox-center", d.bboxCenter, "Bounding box center point.")}
@@ -375,6 +421,28 @@ export class DebugPanel {
     tooltip: string,
   ): string {
     return `<div class="debug-row"><span title="${tooltip}">${label}</span><span data-debug="${key}">${value}</span></div>`;
+  }
+
+  private debugSwitch(
+    label: string,
+    id: string,
+    checked: boolean,
+    tooltip: string,
+  ): string {
+    return `
+      <label class="debug-row debug-row--switch" title="${tooltip}">
+        <span>${label}</span>
+        <span class="debug-switch-wrap">
+          <input
+            id="${id}"
+            class="debug-switch-input"
+            type="checkbox"
+            ${checked ? "checked" : ""}
+          >
+          <span class="debug-switch" aria-hidden="true"></span>
+        </span>
+      </label>
+    `;
   }
 
   private renderHelmetFxModal(): void {

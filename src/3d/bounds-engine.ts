@@ -22,6 +22,7 @@ export class BoundsEngine {
   fitScale = 1;
   boundsMode: BoundsMode = "normal";
   hasFitReference = false;
+  guidesVisible = true;
 
   private crosshair: THREE.Group | null = null;
   private boundingBox: THREE.Line | null = null;
@@ -239,9 +240,16 @@ export class BoundsEngine {
 
   applyBoundsMode(): void {
     const debug = this.boundsMode === "heavy";
-    if (this.crosshair) this.crosshair.visible = debug;
-    if (this.boundingBox) this.boundingBox.visible = true;
-    if (this.boundingBoxHelper) this.boundingBoxHelper.visible = debug;
+    if (this.crosshair) this.crosshair.visible = this.guidesVisible && debug;
+    if (this.boundingBox) this.boundingBox.visible = this.guidesVisible;
+    if (this.boundingBoxHelper) {
+      this.boundingBoxHelper.visible = this.guidesVisible && debug;
+    }
+  }
+
+  setGuidesVisible(visible: boolean): void {
+    this.guidesVisible = visible;
+    this.applyBoundsMode();
   }
 
   removeFromScene(): void {

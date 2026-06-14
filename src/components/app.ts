@@ -78,6 +78,12 @@ export class App {
         onVocoderChange: (params) => {
           this.audioPlayer.setFXParams(params);
         },
+        onModelGuidesToggle: (visible) => {
+          this.modelArea?.setGuidesVisible(visible);
+        },
+        onModelHeavyBoundsToggle: (enabled) => {
+          this.modelArea?.setHeavyBoundsEnabled(enabled);
+        },
       },
       TTS_MODELS,
       STT_MODELS,

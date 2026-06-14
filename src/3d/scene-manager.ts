@@ -10,6 +10,7 @@ export class SceneManager {
   private onFrame: ((dt: number) => void) | null = null;
   private gridTexture: THREE.CanvasTexture | null = null;
   private lastGridAspect = -1;
+  private backgroundVisible = true;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({
@@ -58,7 +59,12 @@ export class SceneManager {
 
     this.gridTexture?.dispose();
     this.gridTexture = this.createGridTexture(width, height);
-    this.scene.background = this.gridTexture;
+    this.scene.background = this.backgroundVisible ? this.gridTexture : null;
+  }
+
+  setBackgroundVisible(visible: boolean): void {
+    this.backgroundVisible = visible;
+    this.scene.background = visible ? this.gridTexture : null;
   }
 
   start(onFrame?: (dt: number) => void): void {
