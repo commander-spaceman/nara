@@ -27,6 +27,17 @@ export class BoundsEngine {
   private debugGeometries: THREE.BufferGeometry[] = [];
   private debugMaterials: THREE.Material[] = [];
 
+  private readonly corners: THREE.Vector3[] = Array.from(
+    { length: 8 },
+    () => new THREE.Vector3(),
+  );
+  private readonly reusableVec = new THREE.Vector3();
+  private readonly framePts: THREE.Vector3[] = Array.from(
+    { length: 5 },
+    () => new THREE.Vector3(),
+  );
+  private readonly scaledCenter = new THREE.Vector3();
+
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private container: HTMLElement;
@@ -110,21 +121,19 @@ export class BoundsEngine {
     let minY = Infinity;
     let maxY = -Infinity;
 
-    const corners = [
-      new THREE.Vector3(box.min.x, box.min.y, box.min.z),
-      new THREE.Vector3(box.min.x, box.min.y, box.max.z),
-      new THREE.Vector3(box.min.x, box.max.y, box.min.z),
-      new THREE.Vector3(box.min.x, box.max.y, box.max.z),
-      new THREE.Vector3(box.max.x, box.min.y, box.min.z),
-      new THREE.Vector3(box.max.x, box.min.y, box.max.z),
-      new THREE.Vector3(box.max.x, box.max.y, box.min.z),
-      new THREE.Vector3(box.max.x, box.max.y, box.max.z),
-    ];
+    this.corners[0].set(box.min.x, box.min.y, box.min.z);
+    this.corners[1].set(box.min.x, box.min.y, box.max.z);
+    this.corners[2].set(box.min.x, box.max.y, box.min.z);
+    this.corners[3].set(box.min.x, box.max.y, box.max.z);
+    this.corners[4].set(box.max.x, box.min.y, box.min.z);
+    this.corners[5].set(box.max.x, box.min.y, box.max.z);
+    this.corners[6].set(box.max.x, box.max.y, box.min.z);
+    this.corners[7].set(box.max.x, box.max.y, box.max.z);
 
-    for (const corner of corners) {
-      const ndc = corner.clone().project(camera);
-      const sx = (ndc.x * 0.5 + 0.5) * width;
-      const sy = (-ndc.y * 0.5 + 0.5) * height;
+    for (const corner of this.corners) {
+      this.reusableVec.copy(corner).project(camera);
+      const sx = (this.reusableVec.x * 0.5 + 0.5) * width;
+      const sy = (-this.reusableVec.y * 0.5 + 0.5) * height;
 
       if (sx < minX) minX = sx;
       if (sx > maxX) maxX = sx;
@@ -243,56 +252,62 @@ export class BoundsEngine {
 
     const camera = this.camera;
 
-    const scaledCenter = new THREE.Vector3();
-    box.getCenter(scaledCenter);
+    box.getCenter(this.scaledCenter);
     const screenBounds = this.computeProjectedBounds(camera, w, h, box);
     if (!screenBounds) return;
 
-    const centerNdc = scaledCenter.clone().project(camera);
-    const pts = [
-      this.screenPointToWorld(
-        screenBounds.minX,
-        screenBounds.maxY,
-        centerNdc.z,
-        w,
-        h,
-        camera,
-      ),
-      this.screenPointToWorld(
-        screenBounds.maxX,
-        screenBounds.maxY,
-        centerNdc.z,
-        w,
-        h,
-        camera,
-      ),
-      this.screenPointToWorld(
-        screenBounds.maxX,
-        screenBounds.minY,
-        centerNdc.z,
-        w,
-        h,
-        camera,
-      ),
-      this.screenPointToWorld(
-        screenBounds.minX,
-        screenBounds.minY,
-        centerNdc.z,
-        w,
-        h,
-        camera,
-      ),
-      this.screenPointToWorld(
-        screenBounds.minX,
-        screenBounds.maxY,
-        centerNdc.z,
-        w,
-        h,
-        camera,
-      ),
-    ];
+    this.reusableVec.copy(this.scaledCenter).project(camera);
+    const centerZ = this.reusableVec.z;
 
-    (this.boundingBox.geometry as THREE.BufferGeometry).setFromPoints(pts);
+    this.screenPointToWorld(
+      screenBounds.minX,
+      screenBounds.maxY,
+      centerZ,
+      w,
+      h,
+      camera,
+      this.framePts[0],
+    );
+    this.screenPointToWorld(
+      screenBounds.maxX,
+      screenBounds.maxY,
+      centerZ,
+      w,
+      h,
+      camera,
+      this.framePts[1],
+    );
+    this.screenPointToWorld(
+      screenBounds.maxX,
+      screenBounds.minY,
+      centerZ,
+      w,
+      h,
+      camera,
+      this.framePts[2],
+    );
+    this.screenPointToWorld(
+      screenBounds.minX,
+      screenBounds.minY,
+      centerZ,
+      w,
+      h,
+      camera,
+      this.framePts[3],
+    );
+    this.screenPointToWorld(
+      screenBounds.minX,
+      screenBounds.maxY,
+      centerZ,
+      w,
+      h,
+      camera,
+      this.framePts[4],
+    );
+
+    (this.boundingBox.geometry as THREE.BufferGeometry).setFromPoints(
+      this.framePts,
+    );
     this.boundingBox.position.set(0, 0, 0);
     this.boundingBox.quaternion.identity();
   }
@@ -304,12 +319,9 @@ export class BoundsEngine {
     width: number,
     height: number,
     camera: THREE.PerspectiveCamera,
-  ): THREE.Vector3 {
-    return new THREE.Vector3(
-      (x / width) * 2 - 1,
-      -(y / height) * 2 + 1,
-      ndcZ,
-    ).unproject(camera);
+    out: THREE.Vector3,
+  ): void {
+    out.set((x / width) * 2 - 1, -(y / height) * 2 + 1, ndcZ).unproject(camera);
   }
 
   private setupDebugObjects(): void {
