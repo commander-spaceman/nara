@@ -27,6 +27,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             health_check,
+            background::background_set_probe,
             commands::memory::memory_start_session,
             commands::memory::memory_end_session,
             commands::memory::memory_save_message,
@@ -71,6 +72,9 @@ pub fn run() {
                     let _ = webview.open_devtools();
                 }
             }
+
+            #[cfg(windows)]
+            app.manage(background::BackgroundProbeState::default());
 
             background::detect_background(app.handle().clone());
 

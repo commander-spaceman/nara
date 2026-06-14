@@ -11,6 +11,9 @@ export class SceneManager {
   private gridTexture: THREE.CanvasTexture | null = null;
   private lastGridAspect = -1;
   private backgroundVisible = true;
+  private currentTheme = "dark";
+  private lastWidth = 1;
+  private lastHeight = 1;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({
@@ -49,6 +52,8 @@ export class SceneManager {
   }
 
   setSize(width: number, height: number): void {
+    this.lastWidth = width;
+    this.lastHeight = height;
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / Math.max(height, 1);
     this.camera.updateProjectionMatrix();
@@ -59,6 +64,15 @@ export class SceneManager {
 
     this.gridTexture?.dispose();
     this.gridTexture = this.createGridTexture(width, height);
+    this.scene.background = this.backgroundVisible ? this.gridTexture : null;
+  }
+
+  setTheme(theme: string): void {
+    if (theme === this.currentTheme) return;
+    this.currentTheme = theme;
+    this.lastGridAspect = -1;
+    this.gridTexture?.dispose();
+    this.gridTexture = this.createGridTexture(this.lastWidth, this.lastHeight);
     this.scene.background = this.backgroundVisible ? this.gridTexture : null;
   }
 
@@ -103,11 +117,18 @@ export class SceneManager {
     const stepY = Math.max(1, (SIZE * cellPx) / Math.max(h, 1));
     const startX = cx % stepX;
     const startY = cy % stepY;
+    const styles = getComputedStyle(document.documentElement);
+    const gridBg = styles.getPropertyValue("--grid-bg").trim() || "#0a0a1a";
+    const gridMinor =
+      styles.getPropertyValue("--grid-line").trim() || "#1a1a3a";
+    const gridMajor =
+      styles.getPropertyValue("--grid-line-strong").trim() || "#2a2a5a";
+    const gridAxis = styles.getPropertyValue("--grid-axis").trim() || "#445588";
 
-    ctx.fillStyle = "#0a0a1a";
+    ctx.fillStyle = gridBg;
     ctx.fillRect(0, 0, SIZE, SIZE);
 
-    ctx.strokeStyle = "#1a1a3a";
+    ctx.strokeStyle = gridMinor;
     ctx.lineWidth = 0.5;
     for (let x = startX; x <= SIZE; x += stepX) {
       ctx.beginPath();
@@ -122,7 +143,7 @@ export class SceneManager {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = "#2a2a5a";
+    ctx.strokeStyle = gridMajor;
     ctx.lineWidth = 1;
     for (let x = startX; x <= SIZE; x += stepX * 4) {
       ctx.beginPath();
@@ -137,7 +158,7 @@ export class SceneManager {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = "#445588";
+    ctx.strokeStyle = gridAxis;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(cx, 0);

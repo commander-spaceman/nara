@@ -17,6 +17,13 @@ describe("Background Theme Detection", () => {
       expect(bg).toContain("GetDC");
       expect(bg).toContain("background-theme");
       expect(bg).toContain("luminance");
+      expect(bg).toContain("background_set_probe");
+      expect(bg).toContain("ProbeRect");
+      expect(bg).toContain("inner_position");
+      expect(bg).toContain("inner_size");
+      expect(bg).toContain("radius_x");
+      expect(bg).toContain("radius_y");
+      expect(bg).toContain("REQUIRED_STABLE_POLLS");
     });
 
     it("lib.rs imports and calls detect_background", () => {
@@ -38,6 +45,7 @@ describe("Background Theme Detection", () => {
       expect(main).toContain("background-theme");
       expect(main).toContain("import { listen }");
       expect(main).toContain("data-theme");
+      expect(main).toContain("app.setTheme(event.payload)");
     });
 
     it("style.css has light theme variables", () => {
@@ -45,6 +53,7 @@ describe("Background Theme Detection", () => {
       expect(css).toContain('[data-theme="light"]');
       expect(css).toContain("--bg");
       expect(css).toContain("--text");
+      expect(css).toContain("--grid-bg");
     });
 
     it("style.css has default dark theme", () => {

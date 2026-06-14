@@ -48,12 +48,31 @@ describe("Components & Layout", () => {
       join(root, "src", "3d", "scene-manager.ts"),
       "utf-8",
     );
+    const app = readFileSync(join(compDir, "app.ts"), "utf-8");
+    const modelArea = readFileSync(join(compDir, "model-area.ts"), "utf-8");
 
     it("uses the shorter side to size square cells", () => {
       expect(sceneManager).toContain("GRID_DIVISIONS = 24");
       expect(sceneManager).toContain(
         "const cellPx = Math.min(w, h) / GRID_DIVISIONS",
       );
+    });
+
+    it("rebuilds the grid from theme variables", () => {
+      expect(sceneManager).toContain('getPropertyValue("--grid-bg")');
+      expect(sceneManager).toContain('getPropertyValue("--grid-line")');
+      expect(sceneManager).toContain('getPropertyValue("--grid-line-strong")');
+      expect(sceneManager).toContain('getPropertyValue("--grid-axis")');
+      expect(sceneManager).toContain("setTheme(theme: string)");
+    });
+
+    it("tracks the model area center for theme sampling", () => {
+      expect(app).toContain("background_set_probe");
+      expect(app).toContain("getBoundingClientRect");
+      expect(app).toContain("width: rect.width");
+      expect(app).toContain("height: rect.height");
+      expect(app).toContain("ResizeObserver");
+      expect(modelArea).toContain("setTheme(theme: string)");
     });
   });
 

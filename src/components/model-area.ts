@@ -176,6 +176,10 @@ export class ModelArea {
     );
   }
 
+  setTheme(theme: string): void {
+    this.sceneManager?.setTheme(theme);
+  }
+
   private fitModelToContainer(): void {
     if (!this.sceneManager || !this.animCtrl || !this.boundsEng) return;
 

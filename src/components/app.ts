@@ -1,5 +1,6 @@
 import { DebugPanel } from "./debug-panel";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { ModelArea, type ModelDebugSnapshot } from "./model-area";
 import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
@@ -36,6 +37,7 @@ export class App {
   private sttModel: string;
   private shouldRestartMic = false;
   private transcriptionHideTimer: ReturnType<typeof setTimeout> | null = null;
+  private modelAreaProbeObserver: ResizeObserver | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -104,6 +106,7 @@ export class App {
       this.debugPanel.update(this.formatModelDebug(snapshot));
     });
     this.modelArea.mount();
+    this.bindModelAreaProbe();
 
     this.subtitleBox = new SubtitleBox(this.el("subtitle-box"));
     this.subtitleBox.mount();
@@ -316,6 +319,30 @@ export class App {
     this.subtitleBox.setText(
       `started new session ${getSessionId().slice(0, 10)}`,
     );
+  }
+
+  setTheme(theme: string): void {
+    this.modelArea?.setTheme(theme);
+  }
+
+  private bindModelAreaProbe(): void {
+    const modelArea = this.el("model-area");
+    const updateProbe = () => {
+      const rect = modelArea.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      invoke("background_set_probe", {
+        x,
+        y,
+        width: rect.width,
+        height: rect.height,
+      }).catch(() => {});
+    };
+
+    updateProbe();
+    this.modelAreaProbeObserver?.disconnect();
+    this.modelAreaProbeObserver = new ResizeObserver(() => updateProbe());
+    this.modelAreaProbeObserver.observe(modelArea);
   }
 
   private formatUptime(): string {

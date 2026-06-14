@@ -3,6 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { App } from "./components/app";
 import "./style.css";
 
+const app = new App(document.getElementById("app")!);
+
 document.addEventListener(
   "mousedown",
   (e) => {
@@ -20,7 +22,7 @@ document.addEventListener(
 
 listen<string>("background-theme", (event) => {
   document.documentElement.setAttribute("data-theme", event.payload);
+  app.setTheme(event.payload);
 });
 
-const app = new App(document.getElementById("app")!);
 app.mount();
