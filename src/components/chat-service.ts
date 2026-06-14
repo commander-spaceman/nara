@@ -24,6 +24,20 @@ export class ChatService {
   private ttsModel: string;
   private lastFactExtraction = 0;
 
+  private static readonly PROFILE_WHITELIST = new Set([
+    "name",
+    "language",
+    "pc_name",
+    "tone",
+    "job",
+    "location",
+    "interests",
+    "hobbies",
+    "preferred_style",
+    "favorite_topics",
+    "timezone",
+  ]);
+
   constructor(
     subtitleBox: SubtitleBox,
     debugPanel: DebugPanel,
@@ -167,6 +181,7 @@ export class ChatService {
     extractFacts(this.history)
       .then((facts) => {
         for (const { key, value } of facts) {
+          if (!ChatService.PROFILE_WHITELIST.has(key)) continue;
           upsertProfile(key, value).catch(() => {});
         }
       })
