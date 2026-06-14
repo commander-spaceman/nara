@@ -10,6 +10,7 @@
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Nara'Korrin",
@@ -28,6 +29,9 @@
     "security": {
       "csp": null
     }
+  },
+  "plugins": {
+    "store": {}
   },
   "bundle": {
     "active": true,

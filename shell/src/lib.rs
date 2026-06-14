@@ -1,4 +1,6 @@
 use serde::Serialize;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, RunEvent, WindowEvent};
 
 mod background;
@@ -25,9 +27,17 @@ fn health_check() -> HealthResponse {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             health_check,
             background::background_set_probe,
+            commands::config::config_load,
+            commands::config::config_save,
+            commands::config::config_get,
+            commands::config::config_set,
+            commands::config::config_get_api_key,
+            commands::config::config_set_api_key,
+            commands::config::config_delete_api_key,
             commands::memory::memory_start_session,
             commands::memory::memory_end_session,
             commands::memory::memory_save_message,
@@ -77,6 +87,36 @@ pub fn run() {
             app.manage(background::BackgroundProbeState::default());
 
             background::detect_background(app.handle().clone());
+
+            let show_hide =
+                MenuItem::with_id(app, "toggle_visibility", "Show / Hide", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_hide, &quit])?;
+
+            let _tray = TrayIconBuilder::new()
+                .icon(
+                    app.default_window_icon()
+                        .cloned()
+                        .expect("no default window icon"),
+                )
+                .menu(&menu)
+                .on_menu_event(|app_handle, event| match event.id().as_ref() {
+                    "toggle_visibility" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            if window.is_visible().unwrap_or(false) {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    }
+                    "quit" => {
+                        app_handle.exit(0);
+                    }
+                    _ => {}
+                })
+                .build(app)?;
 
             Ok(())
         })
