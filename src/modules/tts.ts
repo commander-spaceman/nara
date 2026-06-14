@@ -1,4 +1,12 @@
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
+import { getOpenAIKey } from "./keyring";
+
+let _apiKey: string | null = null;
+
+async function apiKey(): Promise<string> {
+  if (_apiKey !== null) return _apiKey;
+  _apiKey = await getOpenAIKey();
+  return _apiKey;
+}
 
 export const TTS_MODELS = [
   { id: "gpt-4o-mini-tts", label: "gpt-4o-mini-tts" },
@@ -10,8 +18,9 @@ export async function synthesize(
   text: string,
   model = "gpt-4o-mini-tts",
 ): Promise<ArrayBuffer> {
-  if (!API_KEY) {
-    throw new Error("VITE_OPENAI_API_KEY not set");
+  const key = await apiKey();
+  if (!key) {
+    throw new Error("OpenAI API key not set");
   }
 
   console.log(
@@ -25,7 +34,7 @@ export async function synthesize(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
       model,

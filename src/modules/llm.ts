@@ -1,3 +1,5 @@
+import { getLLMKey } from "./keyring";
+
 const SYSTEM_PROMPT = `You are Nara'Korrin, a friendly quarian living on the user's Windows desktop.
 You speak casual, warm English and Latin American Spanish.
 Respond in whichever language the user uses.
@@ -30,8 +32,8 @@ interface DeepSeekResponse {
 
 let apiKey: string | null = null;
 
-export function setApiKey(key: string): void {
-  apiKey = key;
+export async function initApiKey(): Promise<void> {
+  apiKey = await getLLMKey();
 }
 
 export function getApiKey(): string | null {

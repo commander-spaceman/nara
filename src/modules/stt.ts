@@ -1,4 +1,12 @@
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
+import { getOpenAIKey } from "./keyring";
+
+let _apiKey: string | null = null;
+
+async function apiKey(): Promise<string> {
+  if (_apiKey !== null) return _apiKey;
+  _apiKey = await getOpenAIKey();
+  return _apiKey;
+}
 
 export const STT_MODELS = [
   { id: "whisper-1", label: "whisper-1" },
@@ -7,8 +15,9 @@ export const STT_MODELS = [
 ];
 
 async function request(audioBlob: Blob, model: string): Promise<string> {
-  if (!API_KEY) {
-    throw new Error("VITE_OPENAI_API_KEY not set");
+  const key = await apiKey();
+  if (!key) {
+    throw new Error("OpenAI API key not set");
   }
 
   const formData = new FormData();
@@ -32,7 +41,7 @@ async function request(audioBlob: Blob, model: string): Promise<string> {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${API_KEY}`,
+          Authorization: `Bearer ${key}`,
         },
         body: formData,
       },

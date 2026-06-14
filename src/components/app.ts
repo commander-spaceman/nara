@@ -10,7 +10,7 @@ import { AudioPlayer } from "../audio/audio-player";
 import { ChatService } from "./chat-service";
 import { AudioCapture } from "../modules/audio-capture";
 import { transcribe } from "../modules/stt";
-import { setApiKey } from "../modules/llm";
+import { initApiKey } from "../modules/llm";
 import type { Message } from "../modules/llm";
 import { startSession, endSession, getSessionId } from "../modules/memory";
 import { TTS_MODELS } from "../modules/tts";
@@ -47,8 +47,7 @@ export class App {
   }
 
   mount(): void {
-    const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-    if (apiKey) setApiKey(apiKey);
+    void initApiKey();
 
     this.container.innerHTML = `
       <div id="debug-panel"></div>
@@ -108,9 +107,6 @@ export class App {
 
     this.subtitleBox = new SubtitleBox(this.el("subtitle-box"));
     this.subtitleBox.mount();
-    if (!apiKey) {
-      this.subtitleBox.setText("VITE_DEEPSEEK_API_KEY not set in .env");
-    }
 
     this.controls = new Controls(this.el("controls"), {
       onModeChange: (mode) => {
