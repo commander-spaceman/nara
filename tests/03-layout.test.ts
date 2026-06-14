@@ -43,6 +43,20 @@ describe("Components & Layout", () => {
     });
   });
 
+  describe("grid background", () => {
+    const sceneManager = readFileSync(
+      join(root, "src", "3d", "scene-manager.ts"),
+      "utf-8",
+    );
+
+    it("uses the shorter side to size square cells", () => {
+      expect(sceneManager).toContain("GRID_DIVISIONS = 16");
+      expect(sceneManager).toContain(
+        "const cellPx = Math.min(w, h) / GRID_DIVISIONS",
+      );
+    });
+  });
+
   describe("index.html", () => {
     const html = readFileSync(join(root, "index.html"), "utf-8");
     it("loads main.ts", () => {

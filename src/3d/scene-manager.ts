@@ -90,7 +90,7 @@ export class SceneManager {
 
   private createGridTexture(w: number, h: number): THREE.CanvasTexture {
     const SIZE = 512;
-    const CELL = 32;
+    const GRID_DIVISIONS = 16;
     const canvas = document.createElement("canvas");
     canvas.width = SIZE;
     canvas.height = SIZE;
@@ -98,8 +98,9 @@ export class SceneManager {
 
     const cx = SIZE / 2;
     const cy = SIZE / 2;
-    const stepX = Math.max(1, (SIZE * CELL) / Math.max(w, 1));
-    const stepY = Math.max(1, (SIZE * CELL) / Math.max(h, 1));
+    const cellPx = Math.min(w, h) / GRID_DIVISIONS;
+    const stepX = Math.max(1, (SIZE * cellPx) / Math.max(w, 1));
+    const stepY = Math.max(1, (SIZE * cellPx) / Math.max(h, 1));
     const startX = cx % stepX;
     const startY = cy % stepY;
 
