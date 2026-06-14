@@ -20,6 +20,13 @@ export function isDance(text: string): boolean {
 export type AnimationHint = "talking" | "waving" | "dance";
 export type AnimationState = "idle" | AnimationHint;
 
+export const ANIMATION_KEYS: AnimationState[] = [
+  "idle",
+  "talking",
+  "waving",
+  "dance",
+];
+
 export function detectHint(text: string): AnimationHint {
   if (isGreeting(text)) return "waving";
   if (isDance(text)) return "dance";

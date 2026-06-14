@@ -1,13 +1,6 @@
 import * as THREE from "three";
-import type { AnimationState } from "./animation-state";
+import { type AnimationState, ANIMATION_KEYS } from "./animation-state";
 import type { LoadedModel } from "./model-loader";
-
-const ANIMATION_STATES: AnimationState[] = [
-  "idle",
-  "talking",
-  "waving",
-  "dance",
-];
 
 const CROSSFADE_DURATION = 0.3;
 
@@ -48,7 +41,7 @@ export class AnimationController {
   }
 
   setupAdditionalStates(models: Map<string, LoadedModel>): void {
-    for (const state of ANIMATION_STATES) {
+    for (const state of ANIMATION_KEYS) {
       if (state === "idle") continue;
       const model = models.get(state);
       if (!model || model.animations.length === 0) continue;

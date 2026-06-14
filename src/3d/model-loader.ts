@@ -1,5 +1,6 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { AnimationClip, Group } from "three";
+import { ANIMATION_KEYS } from "./animation-state";
 
 export interface LoadedModel {
   scene: Group;
@@ -10,12 +11,19 @@ export interface ModelManifest {
   [name: string]: string;
 }
 
-const DEFAULT_MANIFEST: ModelManifest = {
-  idle: new URL("../assets/models/Idle.glb", import.meta.url).href,
-  talking: new URL("../assets/models/Talking.glb", import.meta.url).href,
-  waving: new URL("../assets/models/Waving.glb", import.meta.url).href,
-  dance: new URL("../assets/models/Dance.glb", import.meta.url).href,
-};
+function buildManifest(): ModelManifest {
+  const manifest: ModelManifest = {};
+  for (const key of ANIMATION_KEYS) {
+    const filename = key.charAt(0).toUpperCase() + key.slice(1) + ".glb";
+    manifest[key] = new URL(
+      `../assets/models/${filename}`,
+      import.meta.url,
+    ).href;
+  }
+  return manifest;
+}
+
+const DEFAULT_MANIFEST: ModelManifest = buildManifest();
 
 export async function loadModels(
   manifest?: Partial<ModelManifest>,

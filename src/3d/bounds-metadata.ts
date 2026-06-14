@@ -1,3 +1,5 @@
+import { ANIMATION_KEYS } from "./animation-state";
+
 export type BoundsVec3 = [number, number, number];
 
 export interface AnimationBoundsData {
@@ -23,12 +25,16 @@ export interface BoundsManifest {
   [name: string]: string;
 }
 
-const DEFAULT_BOUNDS_MANIFEST: BoundsManifest = {
-  idle: "/build/bounds/Idle.bounds.json",
-  talking: "/build/bounds/Talking.bounds.json",
-  waving: "/build/bounds/Waving.bounds.json",
-  dance: "/build/bounds/Dance.bounds.json",
-};
+function buildBoundsManifest(): BoundsManifest {
+  const manifest: BoundsManifest = {};
+  for (const key of ANIMATION_KEYS) {
+    const filename = key.charAt(0).toUpperCase() + key.slice(1);
+    manifest[key] = `/build/bounds/${filename}.bounds.json`;
+  }
+  return manifest;
+}
+
+const DEFAULT_BOUNDS_MANIFEST: BoundsManifest = buildBoundsManifest();
 
 export async function loadBoundsMetadata(
   manifest?: Partial<BoundsManifest>,
