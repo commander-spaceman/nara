@@ -37,10 +37,36 @@ impl Database {
                 updated_at INTEGER NOT NULL
             );
 
+            CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content);
+
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
             CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);",
         )?;
+
+        let has_fts_data: bool = conn
+            .query_row("SELECT COUNT(*) > 0 FROM messages_fts", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(false);
+        if !has_fts_data {
+            conn.execute_batch(
+                "INSERT INTO messages_fts(rowid, content) SELECT id, content FROM messages;
+
+                CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.id, old.content);
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.id, old.content);
+                    INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+                END;",
+            )?;
+        }
 
         Ok(Database {
             conn: Mutex::new(conn),
@@ -167,14 +193,17 @@ impl Database {
         limit: u32,
     ) -> Result<Vec<(String, String, String, i64)>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        let pattern = format!("%{}%", query);
+        let sanitized = query.replace(['"', '\'', '\\'], "");
+        let fts_query = format!("\"{}\"", sanitized);
         let mut stmt = conn.prepare(
-            "SELECT session_id, role, content, created_at FROM messages
-             WHERE content LIKE ?1
-             ORDER BY created_at DESC
+            "SELECT m.session_id, m.role, m.content, m.created_at
+             FROM messages m
+             JOIN messages_fts fts ON m.id = fts.rowid
+             WHERE messages_fts MATCH ?1
+             ORDER BY m.created_at DESC
              LIMIT ?2",
         )?;
-        let rows = stmt.query_map(params![pattern, limit], |row| {
+        let rows = stmt.query_map(params![fts_query, limit], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
