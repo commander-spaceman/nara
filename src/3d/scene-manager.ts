@@ -8,6 +8,7 @@ export class SceneManager {
   private animFrameId = 0;
   private clock = new THREE.Clock();
   private onFrame: ((dt: number) => void) | null = null;
+  private gridTexture: THREE.CanvasTexture | null = null;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({
@@ -37,7 +38,8 @@ export class SceneManager {
     rim.position.set(-0.8, 1.8, -1.5);
     this.scene.add(rim);
 
-    this.scene.background = this.createGridTexture(1, 1);
+    this.gridTexture = this.createGridTexture(1, 1);
+    this.scene.background = this.gridTexture;
   }
 
   get canvas(): HTMLCanvasElement {
@@ -48,7 +50,9 @@ export class SceneManager {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / Math.max(height, 1);
     this.camera.updateProjectionMatrix();
-    this.scene.background = this.createGridTexture(width, height);
+    this.gridTexture?.dispose();
+    this.gridTexture = this.createGridTexture(width, height);
+    this.scene.background = this.gridTexture;
   }
 
   start(onFrame?: (dt: number) => void): void {
@@ -59,6 +63,8 @@ export class SceneManager {
 
   dispose(): void {
     cancelAnimationFrame(this.animFrameId);
+    this.gridTexture?.dispose();
+    this.gridTexture = null;
     this.renderer.dispose();
     this.scene.clear();
   }
