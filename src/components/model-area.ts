@@ -250,9 +250,16 @@ export class ModelArea {
     this.boundsEng = null;
     this.removeResize?.();
     this.removeResize = null;
+    document.removeEventListener("keydown", this.onKeyDown);
     this.container.innerHTML = `
-      <img class="placeholder-model" src="${quarianPlaceholder}" alt="Nara placeholder" />
+      <div class="placeholder-wrapper">
+        <img class="placeholder-model" src="${quarianPlaceholder}" alt="Nara placeholder" />
+        <button class="placeholder-retry">Reintentar</button>
+      </div>
     `;
+    this.container
+      .querySelector(".placeholder-retry")
+      ?.addEventListener("click", () => this.mount());
   }
 
   dispose(): void {

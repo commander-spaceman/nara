@@ -349,6 +349,32 @@ body {
   }
 }
 
+.placeholder-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.placeholder-retry {
+  padding: 8px 24px;
+  border: 1px solid rgba(100, 140, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(100, 140, 255, 0.1);
+  color: #5fd0ff;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.placeholder-retry:hover {
+  background: rgba(100, 140, 255, 0.2);
+}
+
 /* ---- subtitle box ---- */
 #bottom-section {
   flex-shrink: 0;
