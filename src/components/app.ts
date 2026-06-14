@@ -1,7 +1,7 @@
 import { DebugPanel } from "./debug-panel";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { ModelArea, type ModelDebugSnapshot } from "./model-area";
+import type { ModelArea, ModelDebugSnapshot } from "./model-area";
 import { SubtitleBox } from "./subtitle-box";
 import { Controls } from "./controls";
 import { InputBar } from "./input-bar";
@@ -21,7 +21,7 @@ export type InputMode = "chat" | "mic";
 export class App {
   private container: HTMLElement;
   private debugPanel!: DebugPanel;
-  private modelArea!: ModelArea;
+  private modelArea: ModelArea | null = null;
   private subtitleBox!: SubtitleBox;
   private controls!: Controls;
   private inputBar!: InputBar;
@@ -103,11 +103,7 @@ export class App {
       startedAt: new Date().toTimeString().slice(0, 8),
     });
 
-    this.modelArea = new ModelArea(this.el("model-area"), (snapshot) => {
-      this.debugPanel.update(this.formatModelDebug(snapshot));
-      this.syncBottomSectionWidth(snapshot);
-    });
-    this.modelArea.mount();
+    void this.loadModelArea();
     this.bindModelAreaProbe();
 
     this.subtitleBox = new SubtitleBox(this.el("subtitle-box"));
@@ -132,13 +128,13 @@ export class App {
       this.debugPanel,
       this.controls,
       (hint) => {
-        this.modelArea.startSpeaking(hint);
+        this.modelArea?.startSpeaking(hint);
         this.scheduleTranscriptionHide();
       },
       () => {
         this.clearTranscriptionHideTimer();
         this.inputBar.clearMicStatus();
-        this.modelArea.stopSpeaking();
+        this.modelArea?.stopSpeaking();
       },
     );
 
@@ -325,6 +321,27 @@ export class App {
 
   setTheme(theme: string): void {
     this.modelArea?.setTheme(theme);
+  }
+
+  private async loadModelArea(): Promise<void> {
+    try {
+      const { ModelArea } = await import("./model-area");
+      const modelArea = new ModelArea(this.el("model-area"), (snapshot) => {
+        this.debugPanel.update(this.formatModelDebug(snapshot));
+        this.syncBottomSectionWidth(snapshot);
+      });
+
+      this.modelArea = modelArea;
+      modelArea.mount();
+
+      const theme = document.documentElement.getAttribute("data-theme");
+      if (theme) {
+        modelArea.setTheme(theme);
+      }
+    } catch (error) {
+      console.error("Failed to load model area:", error);
+      this.subtitleBox?.setText("Failed to load 3D model area");
+    }
   }
 
   private bindModelAreaProbe(): void {
