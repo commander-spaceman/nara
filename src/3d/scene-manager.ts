@@ -90,7 +90,7 @@ export class SceneManager {
 
   private createGridTexture(w: number, h: number): THREE.CanvasTexture {
     const SIZE = 512;
-    const GRID_DIVISIONS = 16;
+    const GRID_DIVISIONS = 24;
     const canvas = document.createElement("canvas");
     canvas.width = SIZE;
     canvas.height = SIZE;

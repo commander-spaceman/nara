@@ -50,7 +50,7 @@ describe("Components & Layout", () => {
     );
 
     it("uses the shorter side to size square cells", () => {
-      expect(sceneManager).toContain("GRID_DIVISIONS = 16");
+      expect(sceneManager).toContain("GRID_DIVISIONS = 24");
       expect(sceneManager).toContain(
         "const cellPx = Math.min(w, h) / GRID_DIVISIONS",
       );
