@@ -125,14 +125,25 @@ export async function refreshColdMemory(
 
     if (relevant.length > 0) {
       const pastText = relevant.slice(0, 15).join("\n");
-      const summary = await chat([
+      const promptParts: Message[] = [
         {
           role: "system",
-          content:
-            "Summarize these past conversations in 2-3 sentences. Focus on facts the user shared about themselves, preferences they mentioned, and topics they care about.",
+          content: coldSummary
+            ? "Update this running summary of past conversations by incorporating the new ones below. Keep it to 2-4 sentences. Focus on facts about the user, preferences, and recurring topics."
+            : "Summarize these past conversations in 2-3 sentences. Focus on facts the user shared about themselves, preferences they mentioned, and topics they care about.",
         },
-        { role: "user", content: pastText },
-      ]).catch(() => null);
+      ];
+
+      if (coldSummary) {
+        promptParts.push({
+          role: "user",
+          content: `Current summary:\n${coldSummary}\n\nNew conversations:\n${pastText}`,
+        });
+      } else {
+        promptParts.push({ role: "user", content: pastText });
+      }
+
+      const summary = await chat(promptParts).catch(() => null);
 
       if (summary) {
         coldSummary = summary.text;
