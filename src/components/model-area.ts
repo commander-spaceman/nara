@@ -153,14 +153,18 @@ export class ModelArea {
 
     this.currentAction?.stop();
 
-    for (const [s, group] of this.modelGroups) {
-      group.visible = s === state;
+    for (const [, group] of this.modelGroups) {
+      group.visible = false;
     }
 
+    const nextGroup = this.modelGroup(state)!;
+    const nextAction = this.actions.get(state)!;
+    nextGroup.visible = true;
     this.currentState = state;
-    this.currentAction = this.actions.get(state) ?? null;
-    this.currentAction?.reset().play();
+    this.currentAction = nextAction;
+    nextAction.reset().play();
     this.activeAnimation = state;
+
     this.updateFitReference();
     if (this.boundsMode === "normal") {
       this.updateNormalBounds();
