@@ -35,7 +35,7 @@ export class ModelArea {
   private animCtrl: AnimationController | null = null;
   private boundsEng: BoundsEngine | null = null;
   private removeResize: (() => void) | null = null;
-  private guidesVisible = true;
+  private guidesVisible = false;
   private heavyBoundsEnabled = false;
 
   private lastSnapshotTime = performance.now();

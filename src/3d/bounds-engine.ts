@@ -22,7 +22,7 @@ export class BoundsEngine {
   fitScale = 1;
   boundsMode: BoundsMode = "normal";
   hasFitReference = false;
-  guidesVisible = true;
+  guidesVisible = false;
 
   private crosshair: THREE.Group | null = null;
   private boundingBox: THREE.Line | null = null;

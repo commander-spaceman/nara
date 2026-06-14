@@ -55,7 +55,7 @@ export class DebugPanel {
   private ttsModels: ModelOption[];
   private sttModels: ModelOption[];
   private callbacks: DebugPanelCallbacks;
-  private modelGuidesVisible = true;
+  private modelGuidesVisible = false;
   private modelHeavyBoundsEnabled = false;
 
   constructor(

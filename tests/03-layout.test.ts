@@ -22,6 +22,27 @@ describe("Components & Layout", () => {
     }
   });
 
+  describe("model guides defaults", () => {
+    const debugPanel = readFileSync(join(compDir, "debug-panel.ts"), "utf-8");
+    const modelArea = readFileSync(join(compDir, "model-area.ts"), "utf-8");
+    const boundsEngine = readFileSync(
+      join(root, "src", "3d", "bounds-engine.ts"),
+      "utf-8",
+    );
+
+    it("starts with debug guides disabled", () => {
+      expect(debugPanel).toContain("modelGuidesVisible = false");
+    });
+
+    it("starts with model guides disabled", () => {
+      expect(modelArea).toContain("guidesVisible = false");
+    });
+
+    it("starts with bounds guides disabled", () => {
+      expect(boundsEngine).toContain("guidesVisible = false");
+    });
+  });
+
   describe("index.html", () => {
     const html = readFileSync(join(root, "index.html"), "utf-8");
     it("loads main.ts", () => {
