@@ -42,6 +42,8 @@ export class BoundsEngine {
   private camera: THREE.PerspectiveCamera;
   private container: HTMLElement;
   private boundsMetadata: Map<string, ModelBoundsMetadata>;
+  private lastFitW = 0;
+  private lastFitH = 0;
 
   constructor(
     scene: THREE.Scene,
@@ -57,6 +59,8 @@ export class BoundsEngine {
   }
 
   updateFitReference(animationName: string): void {
+    this.lastFitW = 0;
+    this.lastFitH = 0;
     const meta = this.boundsMetadata.get(animationName);
     const bounds = getAnimationBounds(meta, animationName);
     if (bounds) {
@@ -72,6 +76,9 @@ export class BoundsEngine {
   fitModelToContainer(modelGroups: Map<AnimationState, THREE.Group>): void {
     const { clientWidth: w, clientHeight: h } = this.container;
     if (!w || !h) return;
+    if (w === this.lastFitW && h === this.lastFitH) return;
+    this.lastFitW = w;
+    this.lastFitH = h;
 
     const fovRad = this.camera.fov * (Math.PI / 180);
     const dist = this.camera.position.distanceTo(new THREE.Vector3(0, 0, 0));
