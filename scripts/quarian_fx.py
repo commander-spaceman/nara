@@ -66,14 +66,20 @@ if __name__ == "__main__":
 
     print(json.dumps({"status": "ready"}), flush=True)
 
-    for line in sys.stdin:
+    stdin = sys.stdin.buffer
+    while True:
+        line = stdin.readline()
+        if not line:
+            break
+
         line = line.strip()
         if not line:
             continue
+
         try:
             job = json.loads(line)
             params = job.get("params", {})
-            wav_bytes = sys.stdin.buffer.read(job["size"])
+            wav_bytes = stdin.read(job["size"])
             result = apply(wav_bytes, params)
             meta = json.dumps({"status": "ok", "size": len(result)})
             sys.stdout.buffer.write(meta.encode() + b"\n" + result)
