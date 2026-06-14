@@ -7,10 +7,12 @@ import type { AnimationState } from "./animation-state";
 
 export type BoundsMode = "normal" | "heavy";
 
-const MARGIN = 0.88;
+const FIT_MARGIN_X = 0.88;
+const FIT_MARGIN_Y = 0.85;
 const FRAME_PADDING_X = 0.06;
 const FRAME_PADDING_Y = 0.05;
 const MIN_FRAME_PADDING_PX = 8;
+const SCREEN_CENTER_EPSILON_PX = 0.5;
 
 export class BoundsEngine {
   readonly boundingVolume = new THREE.Box3();
@@ -33,11 +35,13 @@ export class BoundsEngine {
     () => new THREE.Vector3(),
   );
   private readonly reusableVec = new THREE.Vector3();
+  private readonly reusableVec2 = new THREE.Vector3();
   private readonly framePts: THREE.Vector3[] = Array.from(
     { length: 5 },
     () => new THREE.Vector3(),
   );
   private readonly scaledCenter = new THREE.Vector3();
+  private readonly fitReferenceBox = new THREE.Box3();
 
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -92,8 +96,8 @@ export class BoundsEngine {
     const visibleHeight = 2 * dist * Math.tan(fovRad / 2);
     const visibleWidth = visibleHeight * (w / h);
 
-    const fitW = visibleWidth * MARGIN;
-    const fitH = visibleHeight * MARGIN;
+    const fitW = visibleWidth * FIT_MARGIN_X;
+    const fitH = visibleHeight * FIT_MARGIN_Y;
 
     const sx = this.fitReferenceSize.x > 0 ? fitW / this.fitReferenceSize.x : 1;
     const sy = this.fitReferenceSize.y > 0 ? fitH / this.fitReferenceSize.y : 1;
@@ -107,10 +111,71 @@ export class BoundsEngine {
       group.updateWorldMatrix(true, true);
     }
 
+    this.fitReferenceBox.min
+      .copy(this.fitReferenceSize)
+      .multiplyScalar(-0.5 * this.fitScale);
+    this.fitReferenceBox.max
+      .copy(this.fitReferenceSize)
+      .multiplyScalar(0.5 * this.fitScale);
+
     const framingTarget = new THREE.Vector3(0, 0, 0);
     this.camera.lookAt(framingTarget);
     this.camera.updateMatrixWorld();
     this.crosshair?.position.copy(framingTarget);
+
+    const screenBounds = this.computeProjectedBounds(
+      this.camera,
+      w,
+      h,
+      this.fitReferenceBox,
+    );
+    if (!screenBounds) return;
+
+    const projectedCenterX = (screenBounds.minX + screenBounds.maxX) * 0.5;
+    const projectedCenterY = (screenBounds.minY + screenBounds.maxY) * 0.5;
+    const targetCenterX = w * 0.5;
+    const targetCenterY = h * 0.5;
+    const deltaX = targetCenterX - projectedCenterX;
+    const deltaY = targetCenterY - projectedCenterY;
+
+    if (
+      Math.abs(deltaX) <= SCREEN_CENTER_EPSILON_PX &&
+      Math.abs(deltaY) <= SCREEN_CENTER_EPSILON_PX
+    ) {
+      return;
+    }
+
+    this.reusableVec.copy(this.fitReferenceBox.getCenter(this.scaledCenter));
+    this.reusableVec2.copy(this.reusableVec).project(this.camera);
+    const centerZ = this.reusableVec2.z;
+
+    this.screenPointToWorld(
+      projectedCenterX,
+      projectedCenterY,
+      centerZ,
+      w,
+      h,
+      this.camera,
+      this.reusableVec,
+    );
+    this.screenPointToWorld(
+      targetCenterX,
+      targetCenterY,
+      centerZ,
+      w,
+      h,
+      this.camera,
+      this.reusableVec2,
+    );
+    this.reusableVec2.sub(this.reusableVec);
+
+    for (const [, group] of modelGroups) {
+      group.position.add(this.reusableVec2);
+      group.updateWorldMatrix(true, true);
+    }
+
+    this.fitReferenceBox.min.add(this.reusableVec2);
+    this.fitReferenceBox.max.add(this.reusableVec2);
   }
 
   updateBounds(
