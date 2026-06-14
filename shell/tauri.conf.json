@@ -31,7 +31,7 @@
     }
   },
   "plugins": {
-    "store": {}
+    "store": null
   },
   "bundle": {
     "active": true,
