@@ -9,6 +9,7 @@ export class SceneManager {
   private clock = new THREE.Clock();
   private onFrame: ((dt: number) => void) | null = null;
   private gridTexture: THREE.CanvasTexture | null = null;
+  private lastGridAspect = -1;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({
@@ -50,6 +51,11 @@ export class SceneManager {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / Math.max(height, 1);
     this.camera.updateProjectionMatrix();
+
+    const aspect = width / Math.max(height, 1);
+    if (Math.abs(aspect - this.lastGridAspect) < 0.01) return;
+    this.lastGridAspect = aspect;
+
     this.gridTexture?.dispose();
     this.gridTexture = this.createGridTexture(width, height);
     this.scene.background = this.gridTexture;
