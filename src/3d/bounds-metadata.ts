@@ -49,7 +49,9 @@ export async function loadBoundsMetadata(
     entries.map(async ([name, url]) => {
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`failed to load bounds metadata: ${response.status}`);
+        throw new Error(
+          `failed to load bounds metadata for "${name}" from "${url}": ${response.status}`,
+        );
       }
 
       const metadata = (await response.json()) as ModelBoundsMetadata;

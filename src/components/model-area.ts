@@ -137,18 +137,14 @@ export class ModelArea {
       : "talking";
     this.animCtrl.transitionTo(state);
     this.boundsEng.updateFitReference(state);
-    if (this.boundsEng.boundsMode === "normal") {
-      this.boundsEng.updateBounds(this.animCtrl.modelGroups, state);
-    }
+    this.fitModelToContainer();
   }
 
   stopSpeaking(): void {
     if (!this.animCtrl || !this.boundsEng) return;
     this.animCtrl.transitionTo("idle");
     this.boundsEng.updateFitReference("idle");
-    if (this.boundsEng.boundsMode === "normal") {
-      this.boundsEng.updateBounds(this.animCtrl.modelGroups, "idle");
-    }
+    this.fitModelToContainer();
   }
 
   private fitModelToContainer(): void {

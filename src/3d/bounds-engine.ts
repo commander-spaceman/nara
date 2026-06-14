@@ -19,6 +19,7 @@ export class BoundsEngine {
 
   fitScale = 1;
   boundsMode: BoundsMode = "normal";
+  hasFitReference = false;
 
   private crosshair: THREE.Group | null = null;
   private boundingBox: THREE.Line | null = null;
@@ -64,18 +65,24 @@ export class BoundsEngine {
     const meta = this.boundsMetadata.get(animationName);
     const bounds = getAnimationBounds(meta, animationName);
     if (bounds) {
+      this.hasFitReference = true;
       this.fitReferenceCenter.fromArray(bounds.center);
       this.fitReferenceSize.fromArray(bounds.size);
       return;
     }
 
-    this.fitReferenceCenter.set(0, 0, 0);
-    this.fitReferenceSize.set(1, 1, 1);
+    this.hasFitReference = false;
+    console.warn(
+      `%c[3d]%c missing bounds metadata for "${animationName}", preserving previous fit`,
+      "color: #ff9944; font-weight: bold",
+      "color: #ccc",
+    );
   }
 
   fitModelToContainer(modelGroups: Map<AnimationState, THREE.Group>): void {
     const { clientWidth: w, clientHeight: h } = this.container;
     if (!w || !h) return;
+    if (!this.hasFitReference) return;
     if (w === this.lastFitW && h === this.lastFitH) return;
     this.lastFitW = w;
     this.lastFitH = h;
@@ -220,16 +227,8 @@ export class BoundsEngine {
       this.boundingVolume.min.copy(worldMin);
       this.boundingVolume.max.copy(worldMax);
     } else {
-      const scale = group.scale.x;
-      const worldCenter = this.fitReferenceCenter
-        .clone()
-        .multiplyScalar(scale)
-        .add(group.position);
-      const halfSize = this.fitReferenceSize
-        .clone()
-        .multiplyScalar(scale * 0.5);
-      this.boundingVolume.min.copy(worldCenter).sub(halfSize);
-      this.boundingVolume.max.copy(worldCenter).add(halfSize);
+      group.updateWorldMatrix(true, true);
+      this.boundingVolume.setFromObject(group, true);
     }
 
     this.updateBoundsRectangle(this.boundingVolume);
