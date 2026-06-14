@@ -17,7 +17,6 @@ export interface ModelDebugSnapshot {
   position: [number, number, number] | null;
   rotation: [number, number, number] | null;
   scale: [number, number, number] | null;
-  modelSize: [number, number, number] | null;
   projectedFrame: { width: number; height: number } | null;
   clipDuration: number | null;
   clipFrames: number | null;
@@ -214,11 +213,6 @@ export class ModelArea {
         ? [group.rotation.x, group.rotation.y, group.rotation.z]
         : null,
       scale: group ? [group.scale.x, group.scale.y, group.scale.z] : null,
-      modelSize: [
-        this.boundsEng.fitReferenceSize.x,
-        this.boundsEng.fitReferenceSize.y,
-        this.boundsEng.fitReferenceSize.z,
-      ],
       projectedFrame,
       clipDuration: clip?.duration ?? null,
       clipFrames: clip ? Math.round(clip.duration * 30) : null,

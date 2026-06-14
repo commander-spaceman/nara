@@ -265,7 +265,7 @@ export class App {
       modelPosition: this.formatTriple(snapshot.position),
       modelRotation: this.formatTriple(snapshot.rotation),
       modelScale: snapshot.scale != null ? snapshot.scale[0].toFixed(2) : "-",
-      meshSize: this.formatTriple(snapshot.modelSize),
+      meshSize: this.formatTriple(snapshot.fitReferenceSize),
       frameSize: snapshot.projectedFrame
         ? `${Math.round(snapshot.projectedFrame.width)} x ${Math.round(snapshot.projectedFrame.height)} px`
         : "-",
