@@ -97,6 +97,7 @@ export class ModelArea {
       this.container.classList.remove("loading");
     } catch {
       this.showFallback();
+      return;
     }
 
     this.lastSnapshotTime = performance.now();

@@ -117,6 +117,20 @@ export class AnimationController {
 
   dispose(): void {
     this.finishCrossfade();
+    for (const [state, action] of this.actions) {
+      action.stop();
+      this.mixers
+        .get(state)
+        ?.uncacheAction(action.getClip(), this.modelGroups.get(state));
+    }
+    for (const [state, mixer] of this.mixers) {
+      const group = this.modelGroups.get(state);
+      if (group) {
+        this.scene.remove(group);
+        disposeGroupResources(group);
+        mixer.uncacheRoot(group);
+      }
+    }
     this.mixers.clear();
     this.actions.clear();
     this.modelGroups.clear();
@@ -165,4 +179,29 @@ function setGroupOpacity(group: THREE.Group, opacity: number): void {
       mat.needsUpdate = true;
     }
   });
+}
+
+function disposeGroupResources(group: THREE.Group): void {
+  group.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+
+    mesh.geometry.dispose();
+
+    const materials = Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material];
+    for (const mat of materials) {
+      disposeMaterialTextures(mat);
+      mat.dispose();
+    }
+  });
+}
+
+function disposeMaterialTextures(material: THREE.Material): void {
+  for (const value of Object.values(material)) {
+    if (value instanceof THREE.Texture) {
+      value.dispose();
+    }
+  }
 }
