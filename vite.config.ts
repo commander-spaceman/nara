@@ -52,14 +52,6 @@ function serveGeneratedBounds(): Plugin {
 
 export default defineConfig({
   plugins: [serveGeneratedBounds()],
-  resolve: {
-    alias: {
-      "three/addons/": path.resolve(
-        __dirname,
-        "node_modules/three/examples/jsm/",
-      ),
-    },
-  },
   server: {
     watch: {
       ignored: ["**/shell/target/**"],
