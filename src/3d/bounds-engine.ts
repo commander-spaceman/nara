@@ -24,6 +24,9 @@ export class BoundsEngine {
   private boundingBox: THREE.Line | null = null;
   private boundingBoxHelper: THREE.Box3Helper | null = null;
 
+  private debugGeometries: THREE.BufferGeometry[] = [];
+  private debugMaterials: THREE.Material[] = [];
+
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private container: HTMLElement;
@@ -166,6 +169,18 @@ export class BoundsEngine {
       this.scene.remove(this.boundingBoxHelper);
       this.boundingBoxHelper = null;
     }
+  }
+
+  disposeDebugObjects(): void {
+    this.removeFromScene();
+    for (const geo of this.debugGeometries) {
+      geo.dispose();
+    }
+    this.debugGeometries.length = 0;
+    for (const mat of this.debugMaterials) {
+      mat.dispose();
+    }
+    this.debugMaterials.length = 0;
   }
 
   private updateNormalBounds(
@@ -345,6 +360,9 @@ export class BoundsEngine {
     hm.transparent = true;
     hm.opacity = 0.9;
     this.scene.add(this.boundingBoxHelper);
+
+    this.debugGeometries.push(hGeo, vGeo, bbGeo);
+    this.debugMaterials.push(crossMat, bbMat, hm);
     this.applyBoundsMode();
   }
 }

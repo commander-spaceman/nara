@@ -236,6 +236,7 @@ export class ModelArea {
   }
 
   private showFallback(): void {
+    this.boundsEng?.disposeDebugObjects();
     this.sceneManager?.dispose();
     this.sceneManager = null;
     this.animCtrl = null;
@@ -251,7 +252,7 @@ export class ModelArea {
     this.removeResize?.();
     document.removeEventListener("keydown", this.onKeyDown);
     if (this.sceneManager) {
-      this.boundsEng?.removeFromScene();
+      this.boundsEng?.disposeDebugObjects();
       this.animCtrl?.removeFromScene();
       this.sceneManager.dispose();
       this.sceneManager = null;
