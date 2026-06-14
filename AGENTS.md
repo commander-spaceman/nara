@@ -4,15 +4,15 @@
 
 When working on this project, always consult the documentation before writing code or answering questions:
 
-- **Product requirements**: `internal/PRD.md` — Features, user stories, non-functional requirements
-- **Architecture**: `internal/ARCHITECTURE.md` — Stack, components, data flow, design decisions
-- **Voice pipeline**: `internal/TTS.md` — Whisper + Qwen3-TTS + Web Audio FX
-- **LLM strategy**: `internal/LLM.md` — DeepSeek V4 Pro, system prompt, context assembly
-- **Memory system**: `internal/MEMORY.md` — Hermes-inspired 4-layer memory with SQLite
-- **Animation state machine**: `internal/ANIMATION.md` — States, transitions, triggers, AFK system
-- **Configuration**: `internal/CONFIG.md` — Settings persistence, API keys, Rust commands
-- **Error handling**: `internal/ERROR_HANDLING.md` — Retries, timeouts, fallbacks
-- **Deployment**: `internal/DEPLOYMENT.md` — Tauri packaging, Modal deploy
+- **Product requirements**: `internal/product/PRD.md` — Features, user stories, non-functional requirements
+- **Architecture**: `internal/core/ARCHITECTURE.md` — Stack, components, data flow, design decisions
+- **Voice pipeline**: `internal/voice/TTS.md` — Whisper + Qwen3-TTS + Web Audio FX
+- **LLM strategy**: `internal/ai/LLM.md` — DeepSeek V4 Pro, system prompt, context assembly
+- **Memory system**: `internal/ai/MEMORY.md` — Hermes-inspired 4-layer memory with SQLite
+- **Animation state machine**: `internal/avatar/ANIMATION.md` — States, transitions, triggers, AFK system
+- **Configuration**: `internal/core/CONFIG.md` — Settings persistence, API keys, Rust commands
+- **Error handling**: `internal/core/ERROR_HANDLING.md` — Retries, timeouts, fallbacks
+- **Deployment**: `internal/core/DEPLOYMENT.md` — Tauri packaging, Modal deploy
 
 ## API & Technology References
 
