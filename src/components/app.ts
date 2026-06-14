@@ -38,6 +38,7 @@ export class App {
   private shouldRestartMic = false;
   private transcriptionHideTimer: ReturnType<typeof setTimeout> | null = null;
   private modelAreaProbeObserver: ResizeObserver | null = null;
+  private idleFrameWidthPx: number | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -104,6 +105,7 @@ export class App {
 
     this.modelArea = new ModelArea(this.el("model-area"), (snapshot) => {
       this.debugPanel.update(this.formatModelDebug(snapshot));
+      this.syncBottomSectionWidth(snapshot);
     });
     this.modelArea.mount();
     this.bindModelAreaProbe();
@@ -392,6 +394,20 @@ export class App {
       bboxMin: this.formatTriple(snapshot.boundingBoxMin),
       bboxMax: this.formatTriple(snapshot.boundingBoxMax),
     };
+  }
+
+  private syncBottomSectionWidth(snapshot: ModelDebugSnapshot): void {
+    if (
+      this.idleFrameWidthPx == null &&
+      snapshot.activeAnimation === "idle" &&
+      snapshot.projectedFrame
+    ) {
+      this.idleFrameWidthPx = Math.round(snapshot.projectedFrame.width);
+      this.el("bottom-section").style.setProperty(
+        "--chat-width",
+        `${this.idleFrameWidthPx}px`,
+      );
+    }
   }
 
   private formatTriple(

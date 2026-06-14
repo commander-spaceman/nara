@@ -76,6 +76,24 @@ describe("Components & Layout", () => {
     });
   });
 
+  describe("chat width", () => {
+    const app = readFileSync(join(compDir, "app.ts"), "utf-8");
+    const css = readFileSync(join(root, "src", "style.css"), "utf-8");
+
+    it("tracks idle projected frame width for the chat container", () => {
+      expect(app).toContain("idleFrameWidthPx");
+      expect(app).toContain("this.idleFrameWidthPx == null");
+      expect(app).toContain('snapshot.activeAnimation === "idle"');
+      expect(app).toContain('"--chat-width"');
+      expect(app).toContain("idleFrameWidthPx}px");
+    });
+
+    it("centers bottom section and limits it to the idle width", () => {
+      expect(css).toContain("align-self: center");
+      expect(css).toContain("width: min(100%, var(--chat-width, 100%))");
+    });
+  });
+
   describe("index.html", () => {
     const html = readFileSync(join(root, "index.html"), "utf-8");
     it("loads main.ts", () => {
@@ -142,6 +160,11 @@ describe("Components & Layout", () => {
     });
     it("has subtitle box styles", () => {
       expect(css).toContain("#subtitle-box");
+    });
+    it("keeps subtitle box at chat width", () => {
+      expect(css).toContain("#subtitle-box");
+      expect(css).toContain("width: 100%");
+      expect(css).toContain("padding: 8px 0");
     });
     it("has controls styles", () => {
       expect(css).toContain("#controls");
