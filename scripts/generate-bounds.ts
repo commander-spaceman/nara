@@ -7,12 +7,45 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import type { AnimationClip, Object3D, Vector3Like } from "three";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "..");
+interface BoundsManifest {
+  algorithmVersion: string;
+  defaultSampleCount: number;
+  entries: BoundsManifestEntry[];
+}
+
+interface BoundsManifestEntry {
+  key: string;
+  model: string;
+  output: string;
+  sampleCount?: number;
+  animations?: string[];
+}
+
+interface BoundsEnvelope {
+  animation: string;
+  sampleCount: number;
+  algorithmVersion: string;
+  box: {
+    min: [number, number, number];
+    max: [number, number, number];
+  };
+  center: [number, number, number];
+  size: [number, number, number];
+}
+
+interface GeneratedEntry {
+  model: string;
+  output: string;
+  sourceHash: string;
+  sampleCount: number;
+  animations?: string[];
+}
+
+const ROOT = process.cwd();
 const MODELS_DIR = path.join(ROOT, "src", "assets", "models");
 const BOUNDS_DIR = path.join(ROOT, "build", "bounds");
 const CACHE_DIR = path.join(BOUNDS_DIR, "cache");
@@ -20,12 +53,12 @@ const MANIFEST_PATH = path.join(ROOT, "scripts", "bounds-manifest.json");
 
 await main();
 
-async function main() {
+async function main(): Promise<void> {
   const manifest = readManifest();
   mkdirSync(BOUNDS_DIR, { recursive: true });
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  const generatedEntries = {};
+  const generatedEntries: Record<string, GeneratedEntry> = {};
   for (const entry of manifest.entries) {
     const generated = await generateBoundsFile(entry, manifest);
     generatedEntries[entry.key] = generated;
@@ -34,11 +67,14 @@ async function main() {
   writeManifestIndex(manifest.algorithmVersion, generatedEntries);
 }
 
-function readManifest() {
-  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+function readManifest(): BoundsManifest {
+  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as BoundsManifest;
 }
 
-async function generateBoundsFile(entry, manifest) {
+async function generateBoundsFile(
+  entry: BoundsManifestEntry,
+  manifest: BoundsManifest,
+): Promise<GeneratedEntry> {
   const modelPath = path.join(MODELS_DIR, entry.model);
   const outputPath = path.join(BOUNDS_DIR, entry.output);
   const sampleCount = entry.sampleCount ?? manifest.defaultSampleCount;
@@ -76,7 +112,7 @@ async function generateBoundsFile(entry, manifest) {
   const scene = gltf.scene;
   scene.updateWorldMatrix(true, true);
 
-  const animations = {};
+  const animations: Record<string, BoundsEnvelope> = {};
   const allowedAnimations = new Set(
     (entry.animations ?? []).map((name) => name.toLowerCase()),
   );
@@ -116,7 +152,10 @@ async function generateBoundsFile(entry, manifest) {
   };
 }
 
-function writeManifestIndex(algorithmVersion, entries) {
+function writeManifestIndex(
+  algorithmVersion: string,
+  entries: Record<string, GeneratedEntry>,
+): void {
   const manifestIndex = {
     generatedAt: new Date().toISOString(),
     algorithmVersion,
@@ -130,12 +169,12 @@ function writeManifestIndex(algorithmVersion, entries) {
 }
 
 function sampleAnimationEnvelope(
-  scene,
-  clip,
-  animationName,
-  sampleCount,
-  algorithmVersion,
-) {
+  scene: Object3D,
+  clip: AnimationClip,
+  animationName: string,
+  sampleCount: number,
+  algorithmVersion: string,
+): BoundsEnvelope {
   const mixer = new THREE.AnimationMixer(scene);
   const action = mixer.clipAction(clip);
   action.reset();
@@ -171,15 +210,15 @@ function sampleAnimationEnvelope(
   };
 }
 
-function vec3(v) {
+function vec3(v: Vector3Like): [number, number, number] {
   return [round(v.x), round(v.y), round(v.z)];
 }
 
-function round(n) {
+function round(n: number): number {
   return Number(n.toFixed(6));
 }
 
-function cleanClipName(raw) {
+function cleanClipName(raw: string): string {
   return raw
     .replace(/mixamo\.com\|?/gi, "")
     .replace(/^\|+/, "")

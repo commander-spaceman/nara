@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": false,
+    "rootDir": "./scripts",
+    "outDir": "./build/scripts",
+    "noEmit": false
+  },
+  "include": ["scripts/**/*.ts"]
+}

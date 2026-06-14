@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "bounds:generate": "node scripts/generate-bounds.mjs",
+    "bounds:generate": "pnpm exec tsc -p tsconfig.scripts.json && node build/scripts/generate-bounds.js",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
