@@ -2,6 +2,10 @@ import { type Message, chat, getSystemPrompt } from "./llm";
 import { getProfile, searchMessages } from "./memory";
 import type { ProfileEntry } from "./memory";
 
+let coldSummary: string | null = null;
+let lastColdRefresh = -1;
+let refreshLock = false;
+
 async function extractKeywords(text: string): Promise<string[]> {
   try {
     const result = await chat([
@@ -22,29 +26,54 @@ async function extractKeywords(text: string): Promise<string[]> {
   }
 }
 
-let coldSummary: string | null = null;
-let lastColdRefresh = -1;
-
 export async function assembleContext(
   userMessage: string,
   history: Message[],
 ): Promise<Message[]> {
   const messages: Message[] = [];
 
-  // Hot Memory
   messages.push({ role: "system", content: getSystemPrompt() });
 
-  // Deep Memory
   const profile = await getProfile().catch(() => [] as ProfileEntry[]);
   if (profile.length > 0) {
     const profileText = profile.map((p) => `${p.key}=${p.value}`).join(", ");
     messages.push({ role: "system", content: `User profile: ${profileText}` });
   }
 
-  // Cold Memory — refresh every 5 exchanges
-  const exchangeCount = Math.floor(history.length / 2);
-  if (exchangeCount > 0 && exchangeCount - lastColdRefresh >= 5) {
+  if (coldSummary) {
+    messages.push({
+      role: "system",
+      content: `Relevant past conversations: ${coldSummary}`,
+    });
+  }
+
+  messages.push(...history.slice(-10));
+  messages.push({ role: "user", content: userMessage });
+
+  console.log(
+    `%cCTX %c→ %c${messages.length} msgs %cassembled`,
+    "color: #d0a0ff; font-weight: bold",
+    "color: #aaa",
+    "color: #f0c040; font-weight: bold",
+    "color: #aaa",
+  );
+
+  return messages;
+}
+
+export async function refreshColdMemory(
+  userMessage: string,
+  exchangeCount: number,
+): Promise<void> {
+  if (exchangeCount <= 0) return;
+  if (exchangeCount - lastColdRefresh < 5) return;
+  if (refreshLock) return;
+  refreshLock = true;
+
+  try {
     const keywords = await extractKeywords(userMessage);
+    if (keywords.length === 0) return;
+
     const seen = new Set<string>();
     const relevant: string[] = [];
 
@@ -72,35 +101,20 @@ export async function assembleContext(
       if (summary) {
         coldSummary = summary.text;
         lastColdRefresh = exchangeCount;
+        console.log(
+          "%cCTX %ccold memory refreshed",
+          "color: #d0a0ff; font-weight: bold",
+          "color: #aaa",
+        );
       }
     }
+  } finally {
+    refreshLock = false;
   }
-
-  if (coldSummary) {
-    messages.push({
-      role: "system",
-      content: `Relevant past conversations: ${coldSummary}`,
-    });
-  }
-
-  // Recent history
-  messages.push(...history.slice(-10));
-
-  // Current message
-  messages.push({ role: "user", content: userMessage });
-
-  console.log(
-    `%cCTX %c→ %c${messages.length} msgs %cassembled`,
-    "color: #d0a0ff; font-weight: bold",
-    "color: #aaa",
-    "color: #f0c040; font-weight: bold",
-    "color: #aaa",
-  );
-
-  return messages;
 }
 
 export function resetColdCache(): void {
   coldSummary = null;
   lastColdRefresh = -1;
+  refreshLock = false;
 }

@@ -1,7 +1,11 @@
 import type { Message } from "../modules/llm";
 import { chat, getApiKey, suggestReply, extractFacts } from "../modules/llm";
 import { saveMessage, getSessionId, upsertProfile } from "../modules/memory";
-import { assembleContext, resetColdCache } from "../modules/context";
+import {
+  assembleContext,
+  resetColdCache,
+  refreshColdMemory,
+} from "../modules/context";
 import { synthesize } from "../modules/tts";
 import { detectHint } from "../3d/animation-state";
 import { SubtitleBox } from "./subtitle-box";
@@ -73,6 +77,8 @@ export class ChatService {
       });
 
       this.maybeExtractFacts(count);
+
+      refreshColdMemory(text, count).catch(() => {});
 
       const ttsStart = performance.now();
 
