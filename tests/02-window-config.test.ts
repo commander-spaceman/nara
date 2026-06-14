@@ -19,8 +19,8 @@ describe("Window Config", () => {
   it("width is 550", () => {
     expect(window.width).toBe(550);
   });
-  it("height is 700", () => {
-    expect(window.height).toBe(700);
+  it("height is 760", () => {
+    expect(window.height).toBe(760);
   });
   it("transparent is true", () => {
     expect(window.transparent).toBe(true);
