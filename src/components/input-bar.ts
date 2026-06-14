@@ -36,6 +36,7 @@ export class InputBar {
     ) as HTMLElement;
     if (indicator) {
       indicator.classList.toggle("active", recording);
+      indicator.classList.remove("transcribing");
     }
     if (label) {
       label.textContent = recording ? "recording..." : "ready";
@@ -57,7 +58,7 @@ export class InputBar {
     if (this._mode !== "mic") return;
     this.container.innerHTML = `
       <div id="mic-status-area">
-        <div class="recording-indicator active"></div>
+        <div class="recording-indicator transcribing"></div>
         <span class="recording-label">transcribing...</span>
       </div>
     `;
@@ -69,6 +70,11 @@ export class InputBar {
         <span class="recording-label transcription">${text}</span>
       </div>
     `;
+  }
+
+  clearMicStatus(): void {
+    if (this._mode !== "mic") return;
+    this.setMode(null);
   }
 
   private render(mode: InputMode): void {

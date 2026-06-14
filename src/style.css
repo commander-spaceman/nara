@@ -568,6 +568,11 @@ body {
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+.recording-indicator.transcribing {
+  background: #5fdb90;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
 .recording-elapsed {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 10px;

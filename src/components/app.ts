@@ -34,6 +34,7 @@ export class App {
   private ttsModel: string;
   private sttModel: string;
   private shouldRestartMic = false;
+  private transcriptionHideTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -118,9 +119,13 @@ export class App {
       this.subtitleBox,
       this.debugPanel,
       this.controls,
-      (hint) => this.modelArea.startSpeaking(hint),
+      (hint) => {
+        this.modelArea.startSpeaking(hint);
+        this.scheduleTranscriptionHide();
+      },
       () => {
-        this.inputBar.setMode(null);
+        this.clearTranscriptionHideTimer();
+        this.inputBar.clearMicStatus();
         this.modelArea.stopSpeaking();
       },
     );
@@ -195,17 +200,20 @@ export class App {
   }
 
   private startRecording(): void {
+    this.clearTranscriptionHideTimer();
     this.audioPlayer.stop();
     this.inputBar.setMode("mic");
     this.audioCapture.start();
   }
 
   private cancelAndRestart(): void {
+    this.clearTranscriptionHideTimer();
     this.shouldRestartMic = true;
     this.audioCapture.cancel();
   }
 
   private stopRecording(): void {
+    this.clearTranscriptionHideTimer();
     this.controls.setRecording(false);
     this.inputBar.setRecordingState(false);
     this.audioCapture.stop();
@@ -253,6 +261,20 @@ export class App {
     if (m < 60) return `${m}m ${s % 60}s`;
     const h = Math.floor(m / 60);
     return `${h}h ${m % 60}m`;
+  }
+
+  private scheduleTranscriptionHide(): void {
+    this.clearTranscriptionHideTimer();
+    this.transcriptionHideTimer = setTimeout(() => {
+      this.transcriptionHideTimer = null;
+      this.inputBar.clearMicStatus();
+    }, 2000);
+  }
+
+  private clearTranscriptionHideTimer(): void {
+    if (!this.transcriptionHideTimer) return;
+    clearTimeout(this.transcriptionHideTimer);
+    this.transcriptionHideTimer = null;
   }
 
   private formatModelDebug(
