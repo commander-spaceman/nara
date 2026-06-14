@@ -50,6 +50,7 @@ export class ModelArea {
   }
 
   async mount(): Promise<void> {
+    this.container.classList.add("loading");
     this.container.innerHTML = "";
     document.addEventListener("keydown", this.onKeyDown);
 
@@ -92,6 +93,7 @@ export class ModelArea {
 
       boundsEng.updateFitReference("idle");
       this.fitModelToContainer();
+      this.container.classList.remove("loading");
     } catch {
       this.showFallback();
     }
@@ -230,6 +232,7 @@ export class ModelArea {
   }
 
   private showFallback(): void {
+    this.container.classList.remove("loading");
     this.boundsEng?.disposeDebugObjects();
     this.sceneManager?.dispose();
     this.sceneManager = null;
