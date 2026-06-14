@@ -39,7 +39,11 @@ export async function loadModels(
     if (result.status === "fulfilled") {
       loaded.set(result.value.name, result.value.model);
     } else {
-      console.warn(`[3d] failed to load model:`, result.reason);
+      console.warn(
+        `%c[3d]%c failed to load model "${result.reason?.message ?? result.reason}"`,
+        "color: #ff9944; font-weight: bold",
+        "color: #ccc",
+      );
     }
   }
 

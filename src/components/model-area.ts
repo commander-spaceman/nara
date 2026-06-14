@@ -6,6 +6,7 @@ import {
   loadBoundsMetadata,
   loadModels,
   type AnimationHint,
+  type AnimationState,
 } from "../3d";
 import * as THREE from "three";
 import quarianPlaceholder from "../assets/quarian.png";
@@ -123,11 +124,20 @@ export class ModelArea {
 
   startSpeaking(hint: AnimationHint): void {
     if (!this.animCtrl || !this.boundsEng) return;
-    if (!this.animCtrl.modelGroups.has(hint)) return;
-    this.animCtrl.transitionTo(hint);
-    this.boundsEng.updateFitReference(hint);
+    if (!this.animCtrl.modelGroups.has(hint)) {
+      console.warn(
+        `%c[3d]%c model "${hint}" not loaded, falling back to "talking"`,
+        "color: #ff9944; font-weight: bold",
+        "color: #ccc",
+      );
+    }
+    const state: AnimationState = this.animCtrl.modelGroups.has(hint)
+      ? hint
+      : "talking";
+    this.animCtrl.transitionTo(state);
+    this.boundsEng.updateFitReference(state);
     if (this.boundsEng.boundsMode === "normal") {
-      this.boundsEng.updateBounds(this.animCtrl.modelGroups, hint);
+      this.boundsEng.updateBounds(this.animCtrl.modelGroups, state);
     }
   }
 

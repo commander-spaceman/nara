@@ -86,6 +86,12 @@ export class AnimationController {
     toAction.reset().play();
     setGroupOpacity(toGroup, 0);
 
+    console.log(
+      `%c[3d]%c crossfade ${this.currentState} → ${state}`,
+      "color: #5fd0ff; font-weight: bold",
+      "color: #ccc",
+    );
+
     this.crossfade = {
       fromGroup,
       fromState: this.currentState,
