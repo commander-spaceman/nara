@@ -69,6 +69,14 @@ export class AudioPlayer {
     try {
       const wav = new Uint8Array(arrayBuffer);
       const t0 = performance.now();
+      const header = Array.from(wav.slice(0, 32))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join(" ");
+      const riff = new TextDecoder().decode(wav.slice(0, 4));
+      const wave = new TextDecoder().decode(wav.slice(8, 12));
+      console.log(
+        `[FX] input ${wav.byteLength}B riff=${riff} wave=${wave} header=${header}`,
+      );
       console.log(
         `%c[FX]%c → %c+${this.fxParams.pitch_semitones}st %cdry:%c${this.fxParams.dry_gain.toFixed(2)} %cwet:%c${this.fxParams.wet_gain.toFixed(2)}`,
         "color: #5fdb90; font-weight: bold",
