@@ -1,4 +1,5 @@
-import { getLLMKey } from "./keyring";
+import { getLLMKey } from "../modules/keyring";
+import { LOG, log } from "./log";
 
 export const SYSTEM_PROMPT = `You are Nara'Korrin, a friendly quarian living on the user's Windows desktop.
 You speak casual, warm English and Latin American Spanish.
@@ -86,13 +87,7 @@ export async function chat(messages: Message[]): Promise<ChatResult> {
     throw new Error("API key not configured");
   }
 
-  console.log(
-    `%cLLM %c→ %c${messages.length} msgs %cto DeepSeek`,
-    "color: #8ab4f8; font-weight: bold",
-    "color: #aaa",
-    "color: #f0c040; font-weight: bold",
-    "color: #aaa",
-  );
+  log(LOG.llm, `→ ${messages.length} msgs to DeepSeek`);
 
   let lastError: unknown;
 
@@ -101,12 +96,10 @@ export async function chat(messages: Message[]): Promise<ChatResult> {
       const data = await fetchDeepSeek(messages);
       const content = data.choices?.[0]?.message?.content;
 
-      console.log(
-        "%cLLM %c← %cresponse %creceived",
-        "color: #8ab4f8; font-weight: bold",
-        "color: #aaa",
-        "color: #5fdb90; font-weight: bold",
-        "color: #aaa",
+      log(
+        LOG.llm,
+        "← response received",
+        `${data.usage?.total_tokens ?? 0} tokens`,
       );
       console.log(JSON.stringify(data, null, 2));
 
@@ -125,11 +118,7 @@ export async function chat(messages: Message[]): Promise<ChatResult> {
       lastError = err;
       if (attempt < 2) {
         const delay = RETRY_DELAYS[attempt];
-        console.log(
-          `%cLLM %c↻ retry ${attempt + 1}/2 in ${delay}ms`,
-          "color: #8ab4f8; font-weight: bold",
-          "color: #aaa",
-        );
+        log(LOG.llm, `↻ retry ${attempt + 1}/2`, `${delay}ms`);
         await new Promise((r) => setTimeout(r, delay));
       }
     }

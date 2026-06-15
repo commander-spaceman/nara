@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { LOG, log } from "./log";
 
 export interface ProfileEntry {
   key: string;
@@ -28,22 +29,13 @@ export function getSessionId(): string {
 export async function startSession(): Promise<void> {
   sessionId = generateId();
   await invoke("memory_start_session", { sessionId });
-  console.log(
-    `%c[session]%c ${sessionId}`,
-    "color: #f0c040; font-weight: bold",
-    "color: #8ab4f8",
-  );
+  log(LOG.db, `started`, sessionId);
 }
 
 export async function endSession(): Promise<void> {
   if (!sessionId) return;
   await invoke("memory_end_session");
-  console.log(
-    `%c[session]%c ${sessionId} %cended`,
-    "color: #f0c040; font-weight: bold",
-    "color: #8ab4f8",
-    "color: #e04444",
-  );
+  log(LOG.db, `ended`, sessionId);
 }
 
 export async function saveMessage(

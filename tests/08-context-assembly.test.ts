@@ -10,9 +10,9 @@ import {
   assembleContext,
   resetColdCache,
   refreshColdMemory,
-} from "../src/modules/context";
-import { initApiKey } from "../src/modules/llm";
-import type { Message } from "../src/modules/llm";
+} from "../src/memory/context";
+import { initApiKey } from "../src/memory/llm";
+import type { Message } from "../src/memory/llm";
 
 function mockDeepSeekReply(text: string) {
   return new Response(

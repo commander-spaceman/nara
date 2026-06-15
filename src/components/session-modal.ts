@@ -1,5 +1,5 @@
-import { listSessions, loadSession } from "../modules/memory";
-import type { Message } from "../modules/llm";
+import { listSessions, loadSession } from "../memory/db";
+import type { Message } from "../memory/llm";
 
 interface SessionModalCallbacks {
   onSessionLoad: (messages: Message[]) => void;

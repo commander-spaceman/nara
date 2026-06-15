@@ -10,9 +10,9 @@ import { AudioPlayer } from "../audio/audio-player";
 import { ChatService } from "./chat-service";
 import { AudioCapture } from "../modules/audio-capture";
 import { transcribe } from "../modules/stt";
-import { initApiKey } from "../modules/llm";
-import type { Message } from "../modules/llm";
-import { startSession, endSession, getSessionId } from "../modules/memory";
+import { initApiKey } from "../memory/llm";
+import type { Message } from "../memory/llm";
+import { startSession, endSession, getSessionId } from "../memory/db";
 import { TTS_MODELS } from "../modules/tts";
 import { STT_MODELS } from "../modules/stt";
 

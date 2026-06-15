@@ -1,6 +1,7 @@
 import { type Message, chat, getSystemPrompt } from "./llm";
-import { getProfile, searchMessages } from "./memory";
-import type { ProfileEntry } from "./memory";
+import { getProfile, searchMessages } from "./db";
+import type { ProfileEntry } from "./db";
+import { LOG, log } from "./log";
 
 let coldSummary: string | null = null;
 let lastColdRefresh = -1;
@@ -85,13 +86,7 @@ export async function assembleContext(
   messages.push({ role: "user", content: userMessage });
 
   const total = estimateTokens(messages);
-  console.log(
-    `%cCTX %c→ %c${messages.length} msgs %c~${total} tokens`,
-    "color: #d0a0ff; font-weight: bold",
-    "color: #aaa",
-    "color: #f0c040; font-weight: bold",
-    "color: #aaa",
-  );
+  log(LOG.ctx, `→ ${messages.length} msgs assembled`, `~${total} tokens`);
 
   return messages;
 }
@@ -151,11 +146,7 @@ export async function refreshColdMemory(
       if (summary) {
         coldSummary = summary.text;
         lastColdRefresh = exchangeCount;
-        console.log(
-          "%cCTX %ccold memory refreshed",
-          "color: #d0a0ff; font-weight: bold",
-          "color: #aaa",
-        );
+        log(LOG.cold, "memory refreshed");
       }
     }
   } finally {

@@ -13,7 +13,7 @@ import {
   chat,
   extractFacts,
   suggestReply,
-} from "../src/modules/llm";
+} from "../src/memory/llm";
 
 describe("llm — Hot Memory", () => {
   it("system prompt defines Nara'Korrin identity", () => {

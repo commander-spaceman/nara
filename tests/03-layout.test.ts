@@ -130,11 +130,11 @@ describe("Components & Layout", () => {
   });
 
   describe("memory module", () => {
-    it("memory.ts exists", () => {
-      expect(existsSync(join(root, "src", "modules", "memory.ts"))).toBe(true);
+    it("db.ts exists", () => {
+      expect(existsSync(join(root, "src", "memory", "db.ts"))).toBe(true);
     });
     it("llm.ts exists", () => {
-      expect(existsSync(join(root, "src", "modules", "llm.ts"))).toBe(true);
+      expect(existsSync(join(root, "src", "memory", "llm.ts"))).toBe(true);
     });
   });
 

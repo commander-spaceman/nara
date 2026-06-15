@@ -1,12 +1,13 @@
-import type { Message } from "../modules/llm";
-import { chat, getApiKey, suggestReply, extractFacts } from "../modules/llm";
-import { saveMessage, getSessionId, upsertProfile } from "../modules/memory";
+import type { Message } from "../memory/llm";
+import { chat, getApiKey, suggestReply, extractFacts } from "../memory/llm";
+import { saveMessage, getSessionId, upsertProfile } from "../memory/db";
 import {
   assembleContext,
   resetColdCache,
   refreshColdMemory,
-} from "../modules/context";
+} from "../memory/context";
 import { synthesize } from "../modules/tts";
+import { LOG, log } from "../memory/log";
 import { detectHint } from "../3d/animation-state";
 import { SubtitleBox } from "./subtitle-box";
 import { DebugPanel } from "./debug-panel";
@@ -120,11 +121,7 @@ export class ChatService {
           console.error("TTS error:", err);
         });
 
-      console.log(
-        `%c[LLM memory]%c ${count} msgs`,
-        "color: #d0a0ff; font-weight: bold",
-        "color: #aaa",
-      );
+      log(LOG.ctx, `${count} msgs in session`);
     } catch (err) {
       this.subtitleBox.setText("comms error — try again");
       this.controls.setLoading(false);
@@ -137,13 +134,7 @@ export class ChatService {
     const id = getSessionId().slice(0, 10);
     this.subtitleBox.setText(`[${msgs.length} msgs loaded from session ${id}]`);
 
-    console.log(
-      `%c[session]%c ${id} %cloaded %c${msgs.length} msgs`,
-      "color: #f0c040; font-weight: bold",
-      "color: #8ab4f8",
-      "color: #aaa",
-      "color: #5fdb90; font-weight: bold",
-    );
+    log(LOG.db, `loaded`, `${id} (${msgs.length} msgs)`);
     const recent = msgs.slice(-10);
     for (const m of recent) {
       const label = m.role === "user" ? "user: " : "assistant: ";
