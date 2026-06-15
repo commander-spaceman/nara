@@ -305,6 +305,7 @@ export class App {
   private async startFreshSession(): Promise<void> {
     await endSession().catch(() => {});
     this.audioPlayer.stop();
+    this.modelArea?.stopSpeaking();
     this.clearTranscriptionHideTimer();
     this.inputBar.clearMicStatus();
     this.history.length = 0;

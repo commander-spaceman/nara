@@ -56,6 +56,7 @@ export class AudioPlayer {
     if (img) img.classList.remove("talking");
     this.subtitleBox.clear();
     this.controls.setLoading(false);
+    this.onPlayEnd?.();
   }
 
   async play(
