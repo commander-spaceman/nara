@@ -127,8 +127,8 @@ export async function refreshColdMemory(
         {
           role: "system",
           content: coldSummary
-            ? "Merge this previous summary with the new conversations below into 2 short sentences max. Focus ONLY on facts about the user — name, preferences, job, tech stack, location, interests. Ignore the assistant's persona and conversational banter. Keep it tight."
-            : "Summarize these past conversations in 2 short sentences max. Focus ONLY on facts about the user — name, preferences, job, tech stack, location, interests. Ignore chit-chat and roleplay. Keep it tight.",
+            ? "Merge this previous summary with the new conversations below into 2 short sentences max. Focus ONLY on concrete facts about the user — name, preferences, job, tech stack, location, interests. If there are no new concrete facts, keep the previous summary unchanged. Ignore chit-chat, roleplay, poetic language, and the assistant's persona."
+            : "Extract concrete facts about the user from these conversations. 2 short sentences max. Focus ONLY on: name, job, tech stack, location, interests, preferences. If there are no concrete facts, respond with exactly: NO_FACTS. Ignore chit-chat, roleplay, poetic language, and the assistant's persona.",
         },
       ];
 
@@ -143,10 +143,12 @@ export async function refreshColdMemory(
 
       const summary = await chat(promptParts).catch(() => null);
 
-      if (summary) {
+      if (summary && summary.text !== "NO_FACTS") {
         coldSummary = summary.text;
         lastColdRefresh = exchangeCount;
         log(LOG.cold, "memory refreshed");
+      } else if (summary) {
+        log(LOG.cold, "no facts found, cache unchanged");
       }
     }
   } finally {
