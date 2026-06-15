@@ -127,8 +127,8 @@ export async function refreshColdMemory(
         {
           role: "system",
           content: coldSummary
-            ? "Update this running summary of past conversations by incorporating the new ones below. Keep it to 2-4 sentences. Focus on facts about the user, preferences, and recurring topics."
-            : "Summarize these past conversations in 2-3 sentences. Focus on facts the user shared about themselves, preferences they mentioned, and topics they care about.",
+            ? "Merge this previous summary with the new conversations below into 2 short sentences max. Focus ONLY on facts about the user — name, preferences, job, tech stack, location, interests. Ignore the assistant's persona and conversational banter. Keep it tight."
+            : "Summarize these past conversations in 2 short sentences max. Focus ONLY on facts about the user — name, preferences, job, tech stack, location, interests. Ignore chit-chat and roleplay. Keep it tight.",
         },
       ];
 
