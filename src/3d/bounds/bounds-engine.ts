@@ -3,7 +3,7 @@ import {
   getAnimationBounds,
   type ModelBoundsMetadata,
 } from "./bounds-metadata";
-import type { AnimationState } from "./animation-state";
+import type { AnimationState } from "../animation-state";
 
 export type BoundsMode = "normal" | "heavy";
 

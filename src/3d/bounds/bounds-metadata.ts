@@ -1,4 +1,4 @@
-import { ANIMATION_KEYS } from "./animation-state";
+import { ANIMATION_KEYS } from "../animation-state";
 
 export type BoundsVec3 = [number, number, number];
 
