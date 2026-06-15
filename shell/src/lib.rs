@@ -7,7 +7,6 @@ mod background;
 mod commands;
 mod db;
 
-use commands::sidecar::Sidecar;
 use db::Database;
 
 #[derive(Serialize)]
@@ -65,17 +64,6 @@ pub fn run() {
             let database = Database::new(app_dir).expect("failed to initialize database");
             database.close_previous_session().ok();
             app.manage(database);
-
-            match Sidecar::start() {
-                Ok(sidecar) => {
-                    log::info!("sidecar started");
-                    app.manage(Some(sidecar));
-                }
-                Err(e) => {
-                    log::warn!("sidecar failed to start: {e}");
-                    app.manage(None::<Sidecar>);
-                }
-            }
 
             if cfg!(debug_assertions) {
                 if let Some(webview) = app.get_webview_window("main") {
