@@ -12,7 +12,17 @@ const GOOD = "color: #5fdb90";
 const BAD = "color: #e04444";
 
 function log(tag: string, color: string, ...args: unknown[]) {
-  console.log(`%c[mic]%c ${tag}`, color, DIM, ...args);
+  const styles: string[] = [color, DIM];
+  let fmt = `%c[mic]%c ${tag}`;
+  for (const arg of args) {
+    if (typeof arg === "string" && arg.startsWith("color:")) {
+      styles.push(arg);
+      fmt += "%c";
+    } else {
+      fmt += ` ${arg}`;
+    }
+  }
+  console.log(fmt, ...styles);
 }
 
 export class AudioCapture {
