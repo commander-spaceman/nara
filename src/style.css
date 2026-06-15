@@ -483,6 +483,15 @@ body {
   overflow-wrap: break-word;
   font-style: italic;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+#subtitle-box.user #subtitle-text {
+  font-style: normal;
+  color: var(--text-dim);
 }
 
 .session-id-hl {

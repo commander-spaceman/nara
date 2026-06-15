@@ -150,12 +150,10 @@ export class App {
       onStateChange: (state) => {
         if (state === "recording") {
           this.controls.setRecording(true);
-          this.inputBar.setRecordingState(true);
         } else if (state === "stopped") {
           this.processRecording();
         } else if (state === "idle") {
           this.controls.setRecording(false);
-          this.inputBar.setRecordingState(false);
           if (this.shouldRestartMic) {
             this.shouldRestartMic = false;
             this.startRecording();
@@ -163,7 +161,12 @@ export class App {
         }
       },
       onElapsed: (ms) => {
-        this.inputBar.setElapsed(ms);
+        const s = Math.floor(ms / 1000);
+        const secs = s % 60;
+        const mins = Math.floor(s / 60);
+        const elapsed =
+          mins > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${secs}s`;
+        this.subtitleBox.setStatus("active", `recording... ${elapsed}`);
       },
       onError: (message) => {
         this.subtitleBox.setText(message);
@@ -210,12 +213,15 @@ export class App {
   private startRecording(): void {
     this.clearTranscriptionHideTimer();
     this.audioPlayer.stop();
+    this.subtitleBox.clear();
     this.inputBar.setMode("mic");
     this.audioCapture.start();
+    this.subtitleBox.setStatus("active", "recording...");
   }
 
   private cancelAndRestart(): void {
     this.clearTranscriptionHideTimer();
+    this.subtitleBox.clear();
     this.shouldRestartMic = true;
     this.audioCapture.cancel();
   }
@@ -223,7 +229,6 @@ export class App {
   private stopRecording(): void {
     this.clearTranscriptionHideTimer();
     this.controls.setRecording(false);
-    this.inputBar.setRecordingState(false);
     this.audioCapture.stop();
   }
 
@@ -232,7 +237,7 @@ export class App {
     if (!blob) return;
 
     this.controls.setLoading(true);
-    this.inputBar.showProcessing();
+    this.subtitleBox.setStatus("transcribing", "transcribing...");
 
     try {
       const text = await transcribe(blob, this.sttModel);
@@ -241,7 +246,7 @@ export class App {
         this.controls.setLoading(false);
         return;
       }
-      this.inputBar.showTranscription(text);
+      this.subtitleBox.setTranscription(text);
       this.chatService.submit(text);
     } catch (err) {
       console.error("STT error:", err);

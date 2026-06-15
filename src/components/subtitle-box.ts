@@ -14,9 +14,28 @@ export class SubtitleBox {
 
   setText(text: string): void {
     this.cancelClearTimer();
+    this.container.classList.remove("user");
     const el = this.container.querySelector("#subtitle-text");
     if (!el) return;
     el.textContent = text;
+    this.container.classList.add("visible");
+  }
+
+  setTranscription(text: string): void {
+    this.cancelClearTimer();
+    this.container.classList.add("user");
+    const el = this.container.querySelector("#subtitle-text");
+    if (!el) return;
+    el.textContent = text;
+    this.container.classList.add("visible");
+  }
+
+  setStatus(indicatorClass: string, text: string): void {
+    this.cancelClearTimer();
+    this.container.classList.remove("user");
+    const el = this.container.querySelector("#subtitle-text");
+    if (!el) return;
+    el.innerHTML = `<div class="recording-indicator ${indicatorClass}"></div><span>${text}</span>`;
     this.container.classList.add("visible");
   }
 

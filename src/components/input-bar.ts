@@ -27,73 +27,18 @@ export class InputBar {
     this.render(mode);
   }
 
-  setRecordingState(recording: boolean): void {
-    const indicator = this.container.querySelector(
-      ".recording-indicator",
-    ) as HTMLElement;
-    const label = this.container.querySelector(
-      ".recording-label",
-    ) as HTMLElement;
-    if (indicator) {
-      indicator.classList.toggle("active", recording);
-      indicator.classList.remove("transcribing");
-    }
-    if (label) {
-      label.textContent = recording ? "recording..." : "ready";
-    }
-  }
-
-  setElapsed(ms: number): void {
-    const el = this.container.querySelector(".recording-elapsed");
-    if (el) {
-      const s = Math.floor(ms / 1000);
-      const secs = s % 60;
-      const mins = Math.floor(s / 60);
-      el.textContent =
-        mins > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${secs}s`;
-    }
-  }
-
-  showProcessing(): void {
-    if (this._mode !== "mic") return;
-    this.container.innerHTML = `
-      <div id="mic-status-area">
-        <div class="recording-indicator transcribing"></div>
-        <span class="recording-label">transcribing...</span>
-      </div>
-    `;
-  }
-
-  showTranscription(text: string): void {
-    this.container.innerHTML = `
-      <div id="mic-status-area">
-        <span class="recording-label transcription">${text}</span>
-      </div>
-    `;
-  }
-
   clearMicStatus(): void {
     if (this._mode !== "mic") return;
     this.setMode(null);
   }
 
   private render(mode: InputMode): void {
-    this.container.innerHTML =
-      mode === "chat"
-        ? `
+    if (mode === "chat") {
+      this.container.innerHTML = `
         <div id="chat-input-area">
           <input type="text" id="chat-input" placeholder="type a message..." autocomplete="off" />
         </div>
-      `
-        : `
-        <div id="mic-status-area">
-          <div class="recording-indicator"></div>
-          <span class="recording-label">ready</span>
-          <span class="recording-elapsed"></span>
-        </div>
       `;
-
-    if (mode === "chat") {
       const input = this.container.querySelector(
         "#chat-input",
       ) as HTMLInputElement;
@@ -109,6 +54,8 @@ export class InputBar {
         }
       });
       input.focus();
+    } else {
+      this.container.innerHTML = "";
     }
   }
 }
