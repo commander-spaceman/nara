@@ -34,9 +34,32 @@ export class AudioCapture {
   private startTime = 0;
   private elapsedTimer: ReturnType<typeof setInterval> | null = null;
   private savedBlob: Blob | null = null;
+  private deviceChangeHandler: (() => void) | null = null;
 
   constructor(events: AudioCaptureEvents) {
     this.events = events;
+    this.listenDeviceChanges();
+  }
+
+  destroy(): void {
+    if (this.deviceChangeHandler) {
+      navigator.mediaDevices.removeEventListener(
+        "devicechange",
+        this.deviceChangeHandler,
+      );
+      this.deviceChangeHandler = null;
+    }
+    this.cleanup();
+  }
+
+  private listenDeviceChanges(): void {
+    this.deviceChangeHandler = () => {
+      log("↻", DIM, "audio devices changed");
+    };
+    navigator.mediaDevices.addEventListener(
+      "devicechange",
+      this.deviceChangeHandler,
+    );
   }
 
   async start(): Promise<void> {
@@ -49,14 +72,7 @@ export class AudioCapture {
     if (this.state !== "idle") return;
 
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: 16000,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
+      this.stream = await this.requestStream();
     } catch (err) {
       const message =
         err instanceof DOMException && err.name === "NotAllowedError"
@@ -74,7 +90,7 @@ export class AudioCapture {
       ? "audio/webm;codecs=opus"
       : "audio/webm";
 
-    this.recorder = new MediaRecorder(this.stream, {
+    this.recorder = new MediaRecorder(this.stream!, {
       mimeType,
       audioBitsPerSecond: 32000,
     });
@@ -123,6 +139,40 @@ export class AudioCapture {
       const elapsed = Date.now() - this.startTime;
       this.events.onElapsed(elapsed);
     }, 100);
+  }
+
+  private async requestStream(): Promise<MediaStream> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 16000 },
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+        },
+      });
+      this.attachTrackEnded(stream);
+      return stream;
+    } catch {
+      log("!", DIM, "retrying with relaxed constraints");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      this.attachTrackEnded(stream);
+      return stream;
+    }
+  }
+
+  private attachTrackEnded(stream: MediaStream): void {
+    stream.getAudioTracks().forEach((track) => {
+      track.onended = () => {
+        if (this.state === "recording") {
+          log("✗", BAD, "mic disconnected");
+          this.events.onError("microphone disconnected");
+          this.cancel();
+        }
+      };
+    });
   }
 
   stop(): void {
