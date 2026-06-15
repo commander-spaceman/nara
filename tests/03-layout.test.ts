@@ -219,7 +219,7 @@ describe("Components & Layout", () => {
 
     it("supports /session", () => {
       expect(app).toContain('text === "/session"');
-      expect(app).toContain("session ${getSessionId().slice(0, 10)}");
+      expect(app).toContain('session <span class="session-id-hl">');
     });
 
     it("keeps only /history and removes /sessions", () => {

@@ -268,8 +268,10 @@ export class App {
     }
     if (text === "/session") {
       const messageCount = this.history.length;
-      this.subtitleBox.setText(
-        `session ${getSessionId().slice(0, 10)}: ${messageCount} msgs, ${this.formatUptime()}`,
+      const sid = getSessionId().slice(0, 10);
+      this.subtitleBox.setHtml(
+        `session <span class="session-id-hl">${sid}</span>: ${messageCount} msgs, ${this.formatUptime()}`,
+        4000,
       );
       return;
     }
@@ -310,8 +312,10 @@ export class App {
       sessionId: getSessionId().slice(0, 10),
       startedAt: new Date().toTimeString().slice(0, 8),
     });
-    this.subtitleBox.setText(
-      `started new session ${getSessionId().slice(0, 10)}`,
+    const sid = getSessionId().slice(0, 10);
+    this.subtitleBox.setHtml(
+      `[started new session <span class="session-id-hl">${sid}</span>]`,
+      4000,
     );
   }
 

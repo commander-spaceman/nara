@@ -132,7 +132,10 @@ export class ChatService {
   loadSession(msgs: Message[]): void {
     this.history = msgs;
     const id = getSessionId().slice(0, 10);
-    this.subtitleBox.setText(`[${msgs.length} msgs loaded from session ${id}]`);
+    this.subtitleBox.setHtml(
+      `[${msgs.length} msgs loaded from session <span class="session-id-hl">${id}</span>]`,
+      4000,
+    );
 
     log(LOG.db, `loaded`, `${id} (${msgs.length} msgs)`);
     const recent = msgs.slice(-10);

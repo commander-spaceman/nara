@@ -485,6 +485,11 @@ body {
   line-height: 1.4;
 }
 
+.session-id-hl {
+  color: var(--accent);
+  font-style: normal;
+}
+
 /* ---- controls ---- */
 #controls {
   display: flex;
