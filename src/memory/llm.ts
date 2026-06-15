@@ -1,5 +1,6 @@
 import { getLLMKey } from "../modules/keyring";
 import { LOG, log } from "./log";
+import config from "./llm-config.json";
 
 export const SYSTEM_PROMPT = `You are Nara'Korrin, a friendly quarian living on the user's Windows desktop.
 You speak casual, warm English and Latin American Spanish.
@@ -11,10 +12,6 @@ but don't overdo it.
 The user calls you when they need company, tech help, or just to chat.
 NEVER use asterisks or special formatting. Just plain spoken text.`;
 
-const BASE_URL = "https://api.deepseek.com/v1";
-const MODEL = "deepseek-v4-pro";
-const MAX_TOKENS = 512;
-const TEMPERATURE = 0.8;
 const RETRY_DELAYS = [500, 1000];
 
 export interface Message {
@@ -22,7 +19,15 @@ export interface Message {
   content: string;
 }
 
-interface DeepSeekResponse {
+export interface ChatResult {
+  text: string;
+  tokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  cacheHits: number;
+}
+
+interface LLMResponse {
   choices: Array<{ message: { content: string } }>;
   usage?: {
     total_tokens: number;
@@ -46,27 +51,27 @@ export function getSystemPrompt(): string {
   return SYSTEM_PROMPT;
 }
 
-export interface ChatResult {
-  text: string;
-  tokens: number;
-  promptTokens: number;
-  completionTokens: number;
-  cacheHits: number;
+interface FetchOptions {
+  temperature?: number;
+  maxTokens?: number;
 }
 
-async function fetchDeepSeek(
+export async function fetchLLM(
   messages: Message[],
-  options?: { temperature?: number; maxTokens?: number },
-): Promise<DeepSeekResponse> {
-  const body = {
-    model: MODEL,
+  options?: FetchOptions,
+): Promise<LLMResponse> {
+  const body: Record<string, unknown> = {
+    model: config.model,
     messages,
-    max_tokens: options?.maxTokens ?? MAX_TOKENS,
-    temperature: options?.temperature ?? TEMPERATURE,
-    thinking: { type: "disabled" as const },
+    max_tokens: options?.maxTokens ?? config.maxTokens,
+    temperature: options?.temperature ?? config.temperature,
   };
 
-  const response = await fetch(`${BASE_URL}/chat/completions`, {
+  if (config.provider === "deepseek") {
+    body.thinking = { type: "disabled" as const };
+  }
+
+  const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -76,7 +81,7 @@ async function fetchDeepSeek(
   });
 
   if (!response.ok) {
-    throw new Error(`DeepSeek API error: ${response.status}`);
+    throw new Error(`LLM API error: ${response.status}`);
   }
 
   return response.json();
@@ -87,13 +92,13 @@ export async function chat(messages: Message[]): Promise<ChatResult> {
     throw new Error("API key not configured");
   }
 
-  log(LOG.llm, `→ ${messages.length} msgs to DeepSeek`);
+  log(LOG.llm, `→ ${messages.length} msgs to ${config.model}`);
 
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const data = await fetchDeepSeek(messages);
+      const data = await fetchLLM(messages);
       const content = data.choices?.[0]?.message?.content;
 
       log(
@@ -104,7 +109,7 @@ export async function chat(messages: Message[]): Promise<ChatResult> {
       console.log(JSON.stringify(data, null, 2));
 
       if (!content || content.trim() === "") {
-        throw new Error("Empty response from DeepSeek");
+        throw new Error("Empty response from LLM");
       }
 
       return {
@@ -125,50 +130,4 @@ export async function chat(messages: Message[]): Promise<ChatResult> {
   }
 
   throw lastError;
-}
-
-export async function extractFacts(
-  history: Message[],
-): Promise<Array<{ key: string; value: string }>> {
-  if (!apiKey || history.length < 4) return [];
-
-  const prompt = `Based on this conversation, what facts did you learn about the user?
-Return ONLY a JSON array of {key, value}. Include only NEW or CHANGED facts.
-Examples: {"key":"name","value":"Juan"}, {"key":"job","value":"programmer"}, {"key":"pc_name","value":"Cyberia"}`;
-
-  try {
-    const result = await chat([
-      { role: "system", content: prompt },
-      ...history.slice(-6),
-      {
-        role: "user",
-        content: "[extract facts about the user from this conversation]",
-      },
-    ]);
-
-    const json = result.text.replace(/```json\s*|```/g, "").trim();
-    return JSON.parse(json);
-  } catch {
-    return [];
-  }
-}
-
-const SUGGEST_PROMPT = `Given the conversation below, suggest a short, natural reply the user could say next. Match the user's tone and language. Return ONLY the suggested reply — no quotes, no prefixes, no explanation.`;
-
-export async function suggestReply(history: Message[]): Promise<string> {
-  if (!apiKey) return "";
-
-  try {
-    const data = await fetchDeepSeek(
-      [
-        { role: "system", content: SUGGEST_PROMPT },
-        ...history,
-        { role: "user", content: "[suggest a reply the user could say next]" },
-      ],
-      { temperature: 0.9, maxTokens: 128 },
-    );
-    return data.choices?.[0]?.message?.content?.trim() || "";
-  } catch {
-    return "";
-  }
 }

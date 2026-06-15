@@ -1,5 +1,7 @@
 import type { Message } from "../memory/llm";
-import { chat, getApiKey, suggestReply, extractFacts } from "../memory/llm";
+import { chat, getApiKey } from "../memory/llm";
+import { suggestReply } from "../memory/suggest-reply";
+import { extractFacts } from "../memory/extract-facts";
 import { saveMessage, getSessionId, upsertProfile } from "../memory/db";
 import { assembleContext } from "../memory/context";
 import { synthesize } from "../modules/tts";

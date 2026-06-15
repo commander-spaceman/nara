@@ -11,9 +11,9 @@ import {
   getApiKey,
   initApiKey,
   chat,
-  extractFacts,
-  suggestReply,
 } from "../src/memory/llm";
+import { extractFacts } from "../src/memory/extract-facts";
+import { suggestReply } from "../src/memory/suggest-reply";
 
 describe("llm — Hot Memory", () => {
   it("system prompt defines Nara'Korrin identity", () => {
