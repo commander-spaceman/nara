@@ -1,11 +1,7 @@
-import { type Message, chat, getSystemPrompt } from "./llm";
-import { getProfile, searchMessages } from "./db";
+import { type Message, getSystemPrompt } from "./llm";
+import { getProfile } from "./db";
 import type { ProfileEntry } from "./db";
 import { LOG, log } from "./log";
-
-let coldSummary: string | null = null;
-let lastColdRefresh = -1;
-let refreshLock = false;
 
 const TOKEN_BUDGET = 1000;
 const CHARS_PER_TOKEN = 4;
@@ -33,28 +29,6 @@ function trimHistory(historyMessages: Message[], maxTokens: number): Message[] {
   return kept;
 }
 
-const COLD_RECENCY_SECS = 30 * 24 * 60 * 60;
-
-async function extractKeywords(text: string): Promise<string[]> {
-  try {
-    const result = await chat([
-      {
-        role: "system",
-        content:
-          "Extract 3-5 meaningful keywords or key phrases from this user message that would help find relevant past conversations. Focus on topics, facts, names, technologies, or specific interests mentioned. Return ONLY a comma-separated list, no explanation.",
-      },
-      { role: "user", content: text },
-    ]);
-    return result.text
-      .split(/[,;\n]+/)
-      .map((k) => k.trim().toLowerCase())
-      .filter((k) => k.length > 2)
-      .slice(0, 5);
-  } catch {
-    return [];
-  }
-}
-
 export async function assembleContext(
   userMessage: string,
   history: Message[],
@@ -67,13 +41,6 @@ export async function assembleContext(
   if (profile.length > 0) {
     const profileText = profile.map((p) => `${p.key}=${p.value}`).join(", ");
     messages.push({ role: "system", content: `User profile: ${profileText}` });
-  }
-
-  if (coldSummary) {
-    messages.push({
-      role: "system",
-      content: `Relevant past conversations: ${coldSummary}`,
-    });
   }
 
   const fixedTokens = estimateTokens(messages);
@@ -89,75 +56,4 @@ export async function assembleContext(
   log(LOG.ctx, `→ ${messages.length} msgs assembled`, `~${total} tokens`);
 
   return messages;
-}
-
-export async function refreshColdMemory(
-  userMessage: string,
-  exchangeCount: number,
-): Promise<void> {
-  if (exchangeCount <= 0) return;
-  if (exchangeCount - lastColdRefresh < 5) return;
-  if (refreshLock) return;
-  refreshLock = true;
-
-  try {
-    const keywords = await extractKeywords(userMessage);
-    if (keywords.length === 0) return;
-
-    const seen = new Set<string>();
-    const relevant: string[] = [];
-    const since = Math.floor(Date.now() / 1000) - COLD_RECENCY_SECS;
-
-    const allResults = await Promise.all(
-      keywords.map((kw) => searchMessages(kw, 5, since).catch(() => [])),
-    );
-
-    for (const results of allResults) {
-      for (const r of results) {
-        const dedupe = `${r.role}:${r.content.slice(0, 50)}`;
-        if (seen.has(dedupe)) continue;
-        seen.add(dedupe);
-        relevant.push(`${r.role}: ${r.content}`);
-      }
-    }
-
-    if (relevant.length > 0) {
-      const pastText = relevant.slice(0, 15).join("\n");
-      const promptParts: Message[] = [
-        {
-          role: "system",
-          content: coldSummary
-            ? "Merge this previous summary with the new conversations below into 2 short sentences max. Focus ONLY on concrete facts about the user — name, preferences, job, tech stack, location, interests. If there are no new concrete facts, keep the previous summary unchanged. Ignore chit-chat, roleplay, poetic language, and the assistant's persona."
-            : "Extract concrete facts about the user from these conversations. 2 short sentences max. Focus ONLY on: name, job, tech stack, location, interests, preferences. If there are no concrete facts, respond with exactly: NO_FACTS. Ignore chit-chat, roleplay, poetic language, and the assistant's persona.",
-        },
-      ];
-
-      if (coldSummary) {
-        promptParts.push({
-          role: "user",
-          content: `Current summary:\n${coldSummary}\n\nNew conversations:\n${pastText}`,
-        });
-      } else {
-        promptParts.push({ role: "user", content: pastText });
-      }
-
-      const summary = await chat(promptParts).catch(() => null);
-
-      if (summary && summary.text !== "NO_FACTS") {
-        coldSummary = summary.text;
-        lastColdRefresh = exchangeCount;
-        log(LOG.cold, "memory refreshed");
-      } else if (summary) {
-        log(LOG.cold, "no facts found, cache unchanged");
-      }
-    }
-  } finally {
-    refreshLock = false;
-  }
-}
-
-export function resetColdCache(): void {
-  coldSummary = null;
-  lastColdRefresh = -1;
-  refreshLock = false;
 }

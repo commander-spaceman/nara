@@ -13,6 +13,7 @@ import { transcribe } from "../modules/stt";
 import { initApiKey } from "../memory/llm";
 import type { Message } from "../memory/llm";
 import { startSession, endSession, getSessionId } from "../memory/db";
+import { recallPrevious } from "../memory/recall";
 import { TTS_MODELS } from "../modules/tts";
 import { STT_MODELS } from "../modules/stt";
 
@@ -275,6 +276,10 @@ export class App {
       );
       return;
     }
+    if (text === "/recall") {
+      await this.handleRecall();
+      return;
+    }
     if (text === "/exit") {
       await endSession().catch(() => {});
       await getCurrentWindow().close();
@@ -286,10 +291,11 @@ export class App {
       text.startsWith("/new ") ||
       text.startsWith("/debug ") ||
       text.startsWith("/session ") ||
-      text.startsWith("/exit ")
+      text.startsWith("/exit ") ||
+      text.startsWith("/recall ")
     ) {
       this.subtitleBox.setText(
-        "use /help, /history, /new, /debug, /session, or /exit",
+        "use /help, /history, /new, /debug, /session, /recall, or /exit",
       );
       return;
     }
@@ -317,6 +323,27 @@ export class App {
       `[started new session <span class="session-id-hl">${sid}</span>]`,
       4000,
     );
+  }
+
+  private async handleRecall(): Promise<void> {
+    try {
+      const result = await recallPrevious();
+      if (!result) {
+        this.subtitleBox.setText("no previous sessions found");
+        return;
+      }
+
+      this.history.push(...result.messages);
+
+      const count = this.history.length / 2;
+      this.debugPanel.update({ sent: `${count}`, received: `${count}` });
+      this.subtitleBox.setHtml(
+        `[recalled session <span class="session-id-hl">${result.sessionId.slice(0, 10)}</span> — ${result.summary}]`,
+        4000,
+      );
+    } catch {
+      this.subtitleBox.setText("could not recall previous session");
+    }
   }
 
   setTheme(theme: string): void {

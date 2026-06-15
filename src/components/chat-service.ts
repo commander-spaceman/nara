@@ -1,11 +1,7 @@
 import type { Message } from "../memory/llm";
 import { chat, getApiKey, suggestReply, extractFacts } from "../memory/llm";
 import { saveMessage, getSessionId, upsertProfile } from "../memory/db";
-import {
-  assembleContext,
-  resetColdCache,
-  refreshColdMemory,
-} from "../memory/context";
+import { assembleContext } from "../memory/context";
 import { synthesize } from "../modules/tts";
 import { LOG, log } from "../memory/log";
 import { detectHint } from "../3d/animation-state";
@@ -93,8 +89,6 @@ export class ChatService {
 
       this.maybeExtractFacts(count);
 
-      refreshColdMemory(text, count).catch(() => {});
-
       const ttsStart = performance.now();
 
       if (import.meta.env.DEV) {
@@ -150,14 +144,6 @@ export class ChatService {
     }
     const c = `${msgs.length / 2}`;
     this.debugPanel.update({ sent: c, received: c });
-
-    const lastUser = msgs.filter((m) => m.role === "user").pop();
-    if (lastUser) {
-      resetColdCache();
-      refreshColdMemory(lastUser.content, Math.floor(msgs.length / 2)).catch(
-        () => {},
-      );
-    }
   }
 
   resetSession(): void {
@@ -165,7 +151,6 @@ export class ChatService {
     this.totalInputTokens = 0;
     this.totalOutputTokens = 0;
     this.lastFactExtraction = 0;
-    resetColdCache();
     this.debugPanel.update({
       sent: "0",
       received: "0",
