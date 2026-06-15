@@ -28,6 +28,7 @@ export interface ChatResult {
 }
 
 interface LLMResponse {
+  model?: string;
   choices: Array<{ message: { content: string } }>;
   usage?: {
     total_tokens: number;
