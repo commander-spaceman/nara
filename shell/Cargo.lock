@@ -81,7 +81,7 @@ version = "0.1.0"
 dependencies = [
  "keyring",
  "log",
- "quarian-voice-filter",
+ "quarian-dsp",
  "rusqlite",
  "serde",
  "serde_json",
@@ -2585,7 +2585,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "quarian-voice-filter"
+name = "quarian-dsp"
 version = "0.1.0"
 dependencies = [
  "biquad",

@@ -1,4 +1,4 @@
-use quarian_voice_filter::{process_wav_bytes, QuarianVoiceFilterParams};
+use quarian_dsp::{process_wav_bytes, QuarianVoiceFilterParams};
 
 #[tauri::command]
 pub fn quarian_fx(

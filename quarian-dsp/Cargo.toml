@@ -1,0 +1,12 @@
+[package]
+name = "quarian-dsp"
+version = "0.1.0"
+edition = "2021"
+description = "Quarian-style voice DSP engine for Nara"
+
+[dependencies]
+biquad = "0.5"
+hound = "3.5"
+rubato = "0.16"
+rustfft = "6"
+serde = { version = "1", features = ["derive"] }
