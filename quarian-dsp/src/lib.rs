@@ -48,7 +48,7 @@ fn process_wav_bytes_with_mode(
     let total_ms = t_total.elapsed().as_secs_f64() * 1_000.0;
 
     eprintln!(
-        "[quarian-voice-filter] timing total={total_ms:.1}ms decode={decode_ms:.1}ms dsp={dsp_ms:.1}ms encode={encode_ms:.1}ms samples={samples}",
+        "[quarian-dsp] timing total={total_ms:.1}ms decode={decode_ms:.1}ms dsp={dsp_ms:.1}ms encode={encode_ms:.1}ms samples={samples}",
         samples = mono.samples.len()
     );
 

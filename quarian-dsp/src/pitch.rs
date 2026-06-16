@@ -13,15 +13,34 @@ pub fn pitch_shift(samples: &[f32], sample_rate: u32, semitones: f32) -> Vec<f32
     }
 
     let config = stft::config();
+
+    let t0 = std::time::Instant::now();
     let spectrum = stft::stft(samples, config);
+    let stft_ms = t0.elapsed().as_secs_f64() * 1_000.0;
+
+    let t0 = std::time::Instant::now();
     let stretched = phase_vocoder::stretch(&spectrum, rate);
+    let pv_ms = t0.elapsed().as_secs_f64() * 1_000.0;
+
     let stretched_length = ((samples.len() as f32) / rate).round() as usize;
+
+    let t0 = std::time::Instant::now();
     let time_stretched = stft::istft(&stretched, config, stretched_length);
+    let istft_ms = t0.elapsed().as_secs_f64() * 1_000.0;
+
     let resample_ratio = sample_rate as f32 / (sample_rate as f32 / rate);
+    let t0 = std::time::Instant::now();
     let shifted = resample::resample_mono(&time_stretched, resample_ratio)
         .unwrap_or_else(|| fallback_resample(&time_stretched, resample_ratio));
+    let resample_ms = t0.elapsed().as_secs_f64() * 1_000.0;
 
-    stft::fix_length(&shifted, samples.len())
+    let result = stft::fix_length(&shifted, samples.len());
+
+    eprintln!(
+        "[quarian-dsp] pitch stages stft={stft_ms:.1}ms pv={pv_ms:.1}ms istft={istft_ms:.1}ms resample={resample_ms:.1}ms",
+    );
+
+    result
 }
 
 fn fallback_resample(samples: &[f32], ratio: f32) -> Vec<f32> {

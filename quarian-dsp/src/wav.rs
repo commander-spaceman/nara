@@ -25,7 +25,7 @@ pub fn decode_wav_bytes(input: &[u8]) -> Result<MonoAudio, Error> {
     let normalized = normalize_wav_header(input);
 
     eprintln!(
-        "[quarian-voice-filter] decode input bytes={} header={} chunks={}",
+        "[quarian-dsp] decode input bytes={} header={} chunks={}",
         normalized.len(),
         hex_prefix(&normalized, 32),
         riff_chunks(&normalized)
@@ -33,13 +33,13 @@ pub fn decode_wav_bytes(input: &[u8]) -> Result<MonoAudio, Error> {
 
     let cursor = Cursor::new(normalized);
     let mut reader = WavReader::new(cursor).map_err(|err| {
-        eprintln!("[quarian-voice-filter] WavReader::new failed: {err}");
+        eprintln!("[quarian-dsp] WavReader::new failed: {err}");
         Error::WavDecode(err)
     })?;
     let spec = reader.spec();
 
     eprintln!(
-        "[quarian-voice-filter] decoded spec channels={} sample_rate={} bits={} format={:?}",
+        "[quarian-dsp] decoded spec channels={} sample_rate={} bits={} format={:?}",
         spec.channels, spec.sample_rate, spec.bits_per_sample, spec.sample_format
     );
 
@@ -84,7 +84,7 @@ pub fn encode_wav_bytes(
     };
 
     eprintln!(
-        "[quarian-voice-filter] encode spec channels={} sample_rate={} bits={} samples={}",
+        "[quarian-dsp] encode spec channels={} sample_rate={} bits={} samples={}",
         spec.channels,
         spec.sample_rate,
         spec.bits_per_sample,

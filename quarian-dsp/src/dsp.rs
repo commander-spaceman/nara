@@ -47,7 +47,7 @@ pub fn process_mono_f32(
     let t_mix_norm = t0.elapsed().as_secs_f64() * 1_000.0;
 
     eprintln!(
-        "[quarian-voice-filter] dsp stages pitch={t_pitch:.1}ms filters={t_filters:.1}ms mix+norm={t_mix_norm:.1}ms",
+        "[quarian-dsp] dsp stages pitch={t_pitch:.1}ms filters={t_filters:.1}ms mix+norm={t_mix_norm:.1}ms",
     );
 
     output
