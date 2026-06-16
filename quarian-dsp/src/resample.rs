@@ -3,7 +3,7 @@ use rubato::{
     WindowFunction,
 };
 
-const SINC_LEN: usize = 64;
+const SINC_LEN: usize = 32;
 const SINC_OVERSAMPLING_FACTOR: usize = 256;
 const RESAMPLER_CHUNK_SIZE: usize = 1024;
 const RESAMPLER_CHANNELS: usize = 1;
@@ -30,7 +30,7 @@ pub fn resample_mono(samples: &[f32], ratio: f32) -> Option<Vec<f32>> {
     let params = SincInterpolationParameters {
         sinc_len: SINC_LEN,
         f_cutoff: calculate_cutoff(SINC_LEN, window),
-        interpolation: SincInterpolationType::Cubic,
+        interpolation: SincInterpolationType::Linear,
         oversampling_factor: SINC_OVERSAMPLING_FACTOR,
         window,
     };
