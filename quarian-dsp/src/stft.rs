@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 
@@ -11,6 +13,8 @@ pub struct StftConfig {
     pub window: Vec<f32>,
 }
 
+static CONFIG: LazyLock<StftConfig> = LazyLock::new(StftConfig::default);
+
 impl Default for StftConfig {
     fn default() -> Self {
         let n_fft = DEFAULT_N_FFT;
@@ -20,6 +24,10 @@ impl Default for StftConfig {
             window: hann_window(n_fft),
         }
     }
+}
+
+pub fn config() -> &'static StftConfig {
+    &CONFIG
 }
 
 #[derive(Debug, Clone)]
@@ -42,13 +50,14 @@ pub fn stft(samples: &[f32], config: &StftConfig) -> Spectrogram {
     let fft = planner.plan_fft_forward(config.n_fft);
     let bins = config.n_fft / 2 + 1;
     let mut frames = Vec::with_capacity(frame_count);
+    let mut buffer = vec![Complex::new(0.0_f32, 0.0_f32); config.n_fft];
 
     for frame_index in 0..frame_count {
         let start = frame_index * config.hop_length;
-        let mut buffer = vec![Complex::new(0.0_f32, 0.0_f32); config.n_fft];
 
         for index in 0..config.n_fft {
             buffer[index].re = padded[start + index] * config.window[index];
+            buffer[index].im = 0.0;
         }
 
         fft.process(&mut buffer);
@@ -73,9 +82,10 @@ pub fn istft(spectrogram: &Spectrogram, config: &StftConfig, length: usize) -> V
     let overlap_len = config.n_fft + config.hop_length * frame_count.saturating_sub(1);
     let mut output = vec![0.0_f32; overlap_len];
     let mut window_sum = vec![0.0_f32; overlap_len];
+    let mut buffer = vec![Complex::new(0.0_f32, 0.0_f32); config.n_fft];
 
     for (frame_index, frame_bins) in spectrogram.frames.iter().enumerate() {
-        let mut buffer = rebuild_full_spectrum(frame_bins, config.n_fft);
+        rebuild_full_spectrum_into(frame_bins, &mut buffer);
         ifft.process(&mut buffer);
         let start = frame_index * config.hop_length;
 
@@ -129,16 +139,14 @@ fn hann_window(size: usize) -> Vec<f32> {
         .collect()
 }
 
-fn rebuild_full_spectrum(half_spectrum: &[Complex<f32>], n_fft: usize) -> Vec<Complex<f32>> {
-    let mut full = vec![Complex::new(0.0_f32, 0.0_f32); n_fft];
+fn rebuild_full_spectrum_into(half_spectrum: &[Complex<f32>], full: &mut [Complex<f32>]) {
+    let n_fft = full.len();
     let bins = n_fft / 2 + 1;
     full[..bins].copy_from_slice(&half_spectrum[..bins]);
 
     for index in 1..(n_fft / 2) {
         full[n_fft - index] = half_spectrum[index].conj();
     }
-
-    full
 }
 
 #[cfg(test)]

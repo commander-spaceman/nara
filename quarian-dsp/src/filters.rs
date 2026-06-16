@@ -11,28 +11,15 @@ pub fn apply_low_pass(samples: &mut [f32], sample_rate: u32, cutoff_hz: f32) {
 }
 
 pub fn apply_notch(samples: &mut [f32], sample_rate: u32, cutoff_hz: f32, q: f32) {
-    apply_filter(samples, sample_rate, cutoff_hz, Type::Notch, q);
-}
-
-fn apply_filter(
-    samples: &mut [f32],
-    sample_rate: u32,
-    cutoff_hz: f32,
-    filter_type: Type<f32>,
-    q: f32,
-) {
     let sample_rate_hz = (sample_rate as f32).hz();
     let Some(cutoff_hz) = sanitize_cutoff(cutoff_hz, sample_rate_hz) else {
         return;
     };
-
-    let Ok(coefficients) =
-        Coefficients::<f32>::from_params(filter_type, sample_rate_hz, cutoff_hz, q)
+    let Ok(coeffs) = Coefficients::<f32>::from_params(Type::Notch, sample_rate_hz, cutoff_hz, q)
     else {
         return;
     };
-
-    let mut filter = DirectForm1::<f32>::new(coefficients);
+    let mut filter = DirectForm1::<f32>::new(coeffs);
     for sample in samples {
         *sample = filter.run(*sample);
     }
@@ -44,8 +31,33 @@ fn apply_butterworth_order_4(
     cutoff_hz: f32,
     filter_type: Type<f32>,
 ) {
-    for q in BUTTERWORTH_ORDER_4_Q {
-        apply_filter(samples, sample_rate, cutoff_hz, filter_type, q);
+    let sample_rate_hz = (sample_rate as f32).hz();
+    let Some(cutoff_hz) = sanitize_cutoff(cutoff_hz, sample_rate_hz) else {
+        return;
+    };
+    let Ok(coeffs_a) = Coefficients::<f32>::from_params(
+        filter_type,
+        sample_rate_hz,
+        cutoff_hz,
+        BUTTERWORTH_ORDER_4_Q[0],
+    ) else {
+        return;
+    };
+    let Ok(coeffs_b) = Coefficients::<f32>::from_params(
+        filter_type,
+        sample_rate_hz,
+        cutoff_hz,
+        BUTTERWORTH_ORDER_4_Q[1],
+    ) else {
+        return;
+    };
+
+    let mut stage_a = DirectForm1::<f32>::new(coeffs_a);
+    let mut stage_b = DirectForm1::<f32>::new(coeffs_b);
+
+    for sample in samples {
+        *sample = stage_a.run(*sample);
+        *sample = stage_b.run(*sample);
     }
 }
 
@@ -53,12 +65,10 @@ fn sanitize_cutoff(cutoff_hz: f32, sample_rate_hz: Hertz<f32>) -> Option<Hertz<f
     if cutoff_hz <= 0.0 {
         return None;
     }
-
     let nyquist = sample_rate_hz.hz() / 2.0;
     if cutoff_hz >= nyquist {
         return None;
     }
-
     Some(cutoff_hz.hz())
 }
 

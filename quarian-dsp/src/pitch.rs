@@ -1,6 +1,6 @@
 use crate::phase_vocoder;
 use crate::resample;
-use crate::stft::{self, StftConfig};
+use crate::stft::{self};
 
 pub fn pitch_shift(samples: &[f32], sample_rate: u32, semitones: f32) -> Vec<f32> {
     if samples.is_empty() || semitones.abs() < f32::EPSILON {
@@ -12,11 +12,11 @@ pub fn pitch_shift(samples: &[f32], sample_rate: u32, semitones: f32) -> Vec<f32
         return samples.to_vec();
     }
 
-    let config = StftConfig::default();
-    let spectrum = stft::stft(samples, &config);
+    let config = stft::config();
+    let spectrum = stft::stft(samples, config);
     let stretched = phase_vocoder::stretch(&spectrum, rate);
     let stretched_length = ((samples.len() as f32) / rate).round() as usize;
-    let time_stretched = stft::istft(&stretched, &config, stretched_length);
+    let time_stretched = stft::istft(&stretched, config, stretched_length);
     let resample_ratio = sample_rate as f32 / (sample_rate as f32 / rate);
     let shifted = resample::resample_mono(&time_stretched, resample_ratio)
         .unwrap_or_else(|| fallback_resample(&time_stretched, resample_ratio));

@@ -12,28 +12,28 @@ pub fn stretch(spectrogram: &Spectrogram, rate: f32) -> Spectrogram {
     let time_steps = time_steps(frame_len, rate);
     let phi_advance = phase_advance(bin_count, spectrogram.n_fft, spectrogram.hop_length);
     let mut phase_acc = phases(&spectrogram.frames[0]);
-    let padded_frames = padded_frames(&spectrogram.frames, bin_count);
+    let polar = precompute_polar(&spectrogram.frames, bin_count);
     let mut stretched = Vec::with_capacity(time_steps.len());
+    let mut output_frame = vec![Complex::new(0.0_f32, 0.0_f32); bin_count];
 
     for step in time_steps {
         let left = step.floor() as usize;
         let right = left + 1;
         let alpha = step.fract();
-        let left_frame = &padded_frames[left];
-        let right_frame = &padded_frames[right];
-        let mut output_frame = Vec::with_capacity(bin_count);
+        let left_mag = &polar[left].magnitude;
+        let right_mag = &polar[right].magnitude;
+        let left_phase = &polar[left].phase;
+        let right_phase = &polar[right].phase;
 
         for bin in 0..bin_count {
-            let magnitude =
-                magnitude(left_frame[bin]) * (1.0 - alpha) + magnitude(right_frame[bin]) * alpha;
-            output_frame.push(Complex::from_polar(magnitude, phase_acc[bin]));
+            let mag = left_mag[bin] * (1.0 - alpha) + right_mag[bin] * alpha;
+            output_frame[bin] = Complex::from_polar(mag, phase_acc[bin]);
 
-            let delta =
-                wrap_phase(phase(right_frame[bin]) - phase(left_frame[bin]) - phi_advance[bin]);
+            let delta = wrap_phase(right_phase[bin] - left_phase[bin] - phi_advance[bin]);
             phase_acc[bin] += phi_advance[bin] + delta;
         }
 
-        stretched.push(output_frame);
+        stretched.push(output_frame.clone());
     }
 
     Spectrogram {
@@ -41,6 +41,39 @@ pub fn stretch(spectrogram: &Spectrogram, rate: f32) -> Spectrogram {
         hop_length: spectrogram.hop_length,
         frames: stretched,
     }
+}
+
+struct FramePolar {
+    magnitude: Vec<f32>,
+    phase: Vec<f32>,
+}
+
+fn precompute_polar(frames: &[Vec<Complex<f32>>], bin_count: usize) -> Vec<FramePolar> {
+    let zero = vec![0.0_f32; bin_count];
+    let mut polar: Vec<FramePolar> = frames
+        .iter()
+        .map(|frame| {
+            let mut mag = Vec::with_capacity(bin_count);
+            let mut phs = Vec::with_capacity(bin_count);
+            for bin in 0..bin_count {
+                mag.push(magnitude(frame[bin]));
+                phs.push(phase(frame[bin]));
+            }
+            FramePolar {
+                magnitude: mag,
+                phase: phs,
+            }
+        })
+        .collect();
+    polar.push(FramePolar {
+        magnitude: zero.clone(),
+        phase: zero.clone(),
+    });
+    polar.push(FramePolar {
+        magnitude: zero,
+        phase: vec![0.0_f32; bin_count],
+    });
+    polar
 }
 
 fn time_steps(frame_len: usize, rate: f32) -> Vec<f32> {
@@ -61,13 +94,6 @@ fn phase_advance(bin_count: usize, n_fft: usize, hop_length: usize) -> Vec<f32> 
 
 fn phases(frame: &[Complex<f32>]) -> Vec<f32> {
     frame.iter().map(|value| phase(*value)).collect()
-}
-
-fn padded_frames(frames: &[Vec<Complex<f32>>], bin_count: usize) -> Vec<Vec<Complex<f32>>> {
-    let mut padded = frames.to_vec();
-    padded.push(vec![Complex::new(0.0_f32, 0.0_f32); bin_count]);
-    padded.push(vec![Complex::new(0.0_f32, 0.0_f32); bin_count]);
-    padded
 }
 
 fn phase(value: Complex<f32>) -> f32 {

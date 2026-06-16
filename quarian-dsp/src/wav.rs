@@ -147,14 +147,23 @@ fn riff_chunks(bytes: &[u8]) -> String {
 }
 
 fn normalize_wav_header(input: &[u8]) -> Vec<u8> {
-    let mut bytes = input.to_vec();
-
-    if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
-        return bytes;
+    if input.len() < 12 || &input[0..4] != b"RIFF" || &input[8..12] != b"WAVE" {
+        return input.to_vec();
     }
 
-    let riff_size = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
-    if riff_size == u32::MAX {
+    let riff_size = u32::from_le_bytes([input[4], input[5], input[6], input[7]]);
+    let needs_fix = riff_size == u32::MAX || riff_size == 0;
+
+    if !needs_fix {
+        let data_size = find_data_chunk_size(input);
+        if data_size != Some(u32::MAX as usize) && data_size != Some(0) {
+            return input.to_vec();
+        }
+    }
+
+    let mut bytes = input.to_vec();
+
+    if riff_size == u32::MAX || riff_size == 0 {
         let actual_riff_size = bytes.len().saturating_sub(8) as u32;
         bytes[4..8].copy_from_slice(&actual_riff_size.to_le_bytes());
     }
@@ -169,7 +178,7 @@ fn normalize_wav_header(input: &[u8]) -> Vec<u8> {
             bytes[offset + 7],
         ]) as usize;
 
-        if id == b"data" && size == u32::MAX as usize {
+        if id == b"data" && (size == u32::MAX as usize || size == 0) {
             let data_offset = offset + 8;
             let actual_data_size = bytes.len().saturating_sub(data_offset) as u32;
             bytes[offset + 4..offset + 8].copy_from_slice(&actual_data_size.to_le_bytes());
@@ -181,6 +190,25 @@ fn normalize_wav_header(input: &[u8]) -> Vec<u8> {
     }
 
     bytes
+}
+
+fn find_data_chunk_size(bytes: &[u8]) -> Option<usize> {
+    let mut offset = 12usize;
+    while offset + 8 <= bytes.len() {
+        let id = &bytes[offset..offset + 4];
+        let size = u32::from_le_bytes([
+            bytes[offset + 4],
+            bytes[offset + 5],
+            bytes[offset + 6],
+            bytes[offset + 7],
+        ]) as usize;
+        if id == b"data" {
+            return Some(size);
+        }
+        let padded = size + (size % 2);
+        offset = offset.saturating_add(8).saturating_add(padded);
+    }
+    None
 }
 
 fn f32_to_i16(sample: f32) -> i16 {
