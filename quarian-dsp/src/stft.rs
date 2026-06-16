@@ -38,12 +38,11 @@ pub struct Spectrogram {
 }
 
 pub fn stft(samples: &[f32], config: &StftConfig) -> Spectrogram {
-    let pad = config.n_fft / 2;
-    let padded = center_pad(samples, pad);
-    let frame_count = if padded.len() < config.n_fft {
+    let sample_len = samples.len();
+    let frame_count = if sample_len == 0 {
         0
     } else {
-        1 + (padded.len() - config.n_fft) / config.hop_length
+        1 + (sample_len.saturating_sub(1)) / config.hop_length
     };
 
     let mut planner = FftPlanner::<f32>::new();
@@ -51,12 +50,19 @@ pub fn stft(samples: &[f32], config: &StftConfig) -> Spectrogram {
     let bins = config.n_fft / 2 + 1;
     let mut frames = Vec::with_capacity(frame_count);
     let mut buffer = vec![Complex::new(0.0_f32, 0.0_f32); config.n_fft];
+    let pad = config.n_fft as isize / 2;
 
     for frame_index in 0..frame_count {
-        let start = frame_index * config.hop_length;
+        let center = (frame_index * config.hop_length) as isize;
 
         for index in 0..config.n_fft {
-            buffer[index].re = padded[start + index] * config.window[index];
+            let offset = center + index as isize - pad;
+            let sample = if offset >= 0 && (offset as usize) < sample_len {
+                samples[offset as usize]
+            } else {
+                0.0
+            };
+            buffer[index].re = sample * config.window[index];
             buffer[index].im = 0.0;
         }
 
@@ -120,12 +126,6 @@ pub fn fix_length(samples: &[f32], length: usize) -> Vec<f32> {
     let mut output = samples.to_vec();
     output.resize(length, 0.0);
     output
-}
-
-fn center_pad(samples: &[f32], pad: usize) -> Vec<f32> {
-    let mut padded = vec![0.0_f32; samples.len() + pad * 2];
-    padded[pad..pad + samples.len()].copy_from_slice(samples);
-    padded
 }
 
 fn hann_window(size: usize) -> Vec<f32> {

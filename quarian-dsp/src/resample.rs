@@ -20,11 +20,8 @@ pub fn resample_mono(samples: &[f32], ratio: f32) -> Option<Vec<f32>> {
         return None;
     }
 
-    let input = vec![samples
-        .iter()
-        .map(|sample| *sample as f64)
-        .collect::<Vec<_>>()];
-    let mut input_slices: Vec<&[f64]> = input.iter().map(|channel| channel.as_slice()).collect();
+    let input = vec![samples.to_vec()];
+    let mut input_slices: Vec<&[f32]> = input.iter().map(|channel| channel.as_slice()).collect();
     let resample_ratio = output_rate as f64 / input_rate as f64;
     let window = WindowFunction::Blackman2;
     let params = SincInterpolationParameters {
@@ -34,7 +31,7 @@ pub fn resample_mono(samples: &[f32], ratio: f32) -> Option<Vec<f32>> {
         oversampling_factor: SINC_OVERSAMPLING_FACTOR,
         window,
     };
-    let mut resampler = SincFixedIn::<f64>::new(
+    let mut resampler = SincFixedIn::<f32>::new(
         resample_ratio,
         RESAMPLER_MAX_RATIO_RELATIVE,
         params,
@@ -43,7 +40,7 @@ pub fn resample_mono(samples: &[f32], ratio: f32) -> Option<Vec<f32>> {
     )
     .ok()?;
     let output_delay = resampler.output_delay();
-    let mut output_buffer = vec![vec![0.0_f64; resampler.output_frames_max()]; 1];
+    let mut output_buffer = vec![vec![0.0_f32; resampler.output_frames_max()]; 1];
     let mut output = Vec::new();
 
     while input_slices[0].len() >= resampler.input_frames_next() {
@@ -62,7 +59,6 @@ pub fn resample_mono(samples: &[f32], ratio: f32) -> Option<Vec<f32>> {
         output.extend_from_slice(&output_buffer[0][..produced]);
     }
 
-    let output: Vec<f32> = output.into_iter().map(|sample| sample as f32).collect();
     let expected_len = ((samples.len() as f32) * ratio).ceil().max(1.0) as usize;
     Some(trim_resampler_delay(&output, output_delay, expected_len))
 }
