@@ -1,43 +1,39 @@
-use crate::commands::sidecar::Sidecar;
-use serde::{Deserialize, Serialize};
-use tauri::State;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FxParams {
-    pub pitch_semitones: f64,
-    pub dry_gain: f64,
-    pub wet_gain: f64,
-    pub hpf: f64,
-    pub lpf: f64,
-    pub notch: f64,
-    pub drive: f64,
-}
-
-impl Default for FxParams {
-    fn default() -> Self {
-        Self {
-            pitch_semitones: 1.0,
-            dry_gain: 0.25,
-            wet_gain: 0.15,
-            hpf: 200.0,
-            lpf: 7000.0,
-            notch: 1000.0,
-            drive: 0.05,
-        }
-    }
-}
+use quarian_dsp::{process_pcm_bytes, process_wav_bytes, QuarianVoiceFilterParams};
 
 #[tauri::command]
 pub fn quarian_fx(
-    sidecar: State<'_, Option<Sidecar>>,
     wav: Vec<u8>,
-    params: Option<FxParams>,
+    params: Option<QuarianVoiceFilterParams>,
 ) -> Result<Vec<u8>, String> {
-    let sidecar = sidecar
-        .as_ref()
-        .ok_or_else(|| "sidecar not available".to_string())?;
+    let params = params.unwrap_or_default();
+    let header = wav
+        .iter()
+        .take(32)
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ");
 
-    let p = params.unwrap_or_default();
+    let is_pcm = wav.len() < 4 || &wav[..4] != b"RIFF";
 
-    sidecar.process(&wav, &p)
+    log::info!(
+        "quarian_fx input bytes={} pcm={is_pcm} params={params:?} header={header}",
+        wav.len()
+    );
+
+    let result = if is_pcm {
+        process_pcm_bytes(&wav, 24_000, 1, &params)
+    } else {
+        process_wav_bytes(&wav, &params)
+    };
+
+    match result {
+        Ok(output) => {
+            log::info!("quarian_fx output bytes={}", output.len());
+            Ok(output)
+        }
+        Err(err) => {
+            log::error!("quarian_fx failed: {err}");
+            Err(err.to_string())
+        }
+    }
 }
