@@ -105,10 +105,19 @@ export class ChatService {
         });
       }
 
+      log(
+        LOG.llm,
+        `← ${latency}ms latency · ${result.promptTokens}+${result.completionTokens} tokens`,
+      );
+
       synthesize(result.text, this.ttsModel)
         .then(async (audio) => {
           const ttsTime = Math.round(performance.now() - ttsStart);
           this.debugPanel.update({ ttsLatency: `${ttsTime}ms` });
+          log(
+            LOG.llm,
+            `TTS ${ttsTime}ms · ${(audio.byteLength / 1024).toFixed(0)}KB`,
+          );
           const hint = detectHint(text);
           await this.audioPlayer.play(audio, result.text, hint);
         })

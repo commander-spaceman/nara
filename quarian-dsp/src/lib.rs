@@ -2,6 +2,7 @@ mod dsp;
 mod error;
 mod filters;
 mod params;
+mod pcm;
 mod phase_vocoder;
 mod pitch;
 mod resample;
@@ -11,6 +12,7 @@ mod wav;
 pub use crate::error::Error;
 pub use crate::params::QuarianVoiceFilterParams;
 pub use crate::wav::MonoAudio;
+pub use crate::wav::OutputMode;
 
 pub fn process_wav_bytes(
     input: &[u8],
@@ -50,6 +52,41 @@ fn process_wav_bytes_with_mode(
     eprintln!(
         "[quarian-dsp] timing total={total_ms:.1}ms decode={decode_ms:.1}ms dsp={dsp_ms:.1}ms encode={encode_ms:.1}ms samples={samples}",
         samples = mono.samples.len()
+    );
+
+    Ok(output)
+}
+
+pub fn process_pcm_bytes(
+    input: &[u8],
+    sample_rate: u32,
+    channels: u16,
+    params: &QuarianVoiceFilterParams,
+) -> Result<Vec<u8>, Error> {
+    let t_total = std::time::Instant::now();
+
+    let t0 = std::time::Instant::now();
+    let samples = pcm::decode_i16(input, channels as usize);
+    let decode_ms = t0.elapsed().as_secs_f64() * 1_000.0;
+
+    eprintln!(
+        "[quarian-dsp] pcm decode samples={} channels={channels} rate={sample_rate} ({decode_ms:.1}ms)",
+        samples.len()
+    );
+
+    let t0 = std::time::Instant::now();
+    let processed = process_mono_f32(&samples, sample_rate, params)?;
+    let dsp_ms = t0.elapsed().as_secs_f64() * 1_000.0;
+
+    let t0 = std::time::Instant::now();
+    let output = pcm::encode_i16(&processed);
+    let encode_ms = t0.elapsed().as_secs_f64() * 1_000.0;
+
+    let total_ms = t_total.elapsed().as_secs_f64() * 1_000.0;
+
+    eprintln!(
+        "[quarian-dsp] timing total={total_ms:.1}ms decode={decode_ms:.1}ms dsp={dsp_ms:.1}ms encode={encode_ms:.1}ms samples={samples}",
+        samples = samples.len()
     );
 
     Ok(output)

@@ -1,4 +1,4 @@
-use quarian_dsp::{process_wav_bytes, QuarianVoiceFilterParams};
+use quarian_dsp::{process_pcm_bytes, process_wav_bytes, QuarianVoiceFilterParams};
 
 #[tauri::command]
 pub fn quarian_fx(
@@ -13,12 +13,20 @@ pub fn quarian_fx(
         .collect::<Vec<_>>()
         .join(" ");
 
+    let is_pcm = wav.len() < 4 || &wav[..4] != b"RIFF";
+
     log::info!(
-        "quarian_fx input bytes={} params={params:?} header={header}",
+        "quarian_fx input bytes={} pcm={is_pcm} params={params:?} header={header}",
         wav.len()
     );
 
-    match process_wav_bytes(&wav, &params) {
+    let result = if is_pcm {
+        process_pcm_bytes(&wav, 24_000, 1, &params)
+    } else {
+        process_wav_bytes(&wav, &params)
+    };
+
+    match result {
         Ok(output) => {
             log::info!("quarian_fx output bytes={}", output.len());
             Ok(output)
