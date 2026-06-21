@@ -143,3 +143,10 @@ pub fn detect_background(app_handle: tauri::AppHandle) {
         }
     });
 }
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub fn background_set_probe(_x: f64, _y: f64, _width: f64, _height: f64) {}
+
+#[cfg(not(windows))]
+pub fn detect_background(_app_handle: tauri::AppHandle) {}
