@@ -34,16 +34,11 @@ pub fn background_set_probe(
 
 #[cfg(windows)]
 pub fn detect_background(app_handle: tauri::AppHandle) {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
     use tauri::{Emitter, Manager};
     use windows_sys::Win32::Graphics::Gdi::{GetDC, GetPixel, ReleaseDC};
 
     const THEME_THRESHOLD: f32 = 128.0;
     const REQUIRED_STABLE_POLLS: u8 = 2;
-
-    let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
 
     let handle = app_handle.clone();
     std::thread::spawn(move || {
@@ -52,7 +47,7 @@ pub fn detect_background(app_handle: tauri::AppHandle) {
         let mut pending_theme: Option<bool> = None;
         let mut stable_polls: u8 = 0;
 
-        while r.load(Ordering::Relaxed) {
+        loop {
             std::thread::sleep(interval);
 
             let Some(window) = handle.get_webview_window("main") else {
