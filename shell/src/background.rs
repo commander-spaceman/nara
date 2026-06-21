@@ -54,6 +54,10 @@ pub fn detect_background(app_handle: tauri::AppHandle) {
                 return;
             };
 
+            if !window.is_visible().unwrap_or(true) {
+                continue;
+            }
+
             let Ok(pos) = window.inner_position() else {
                 continue;
             };
