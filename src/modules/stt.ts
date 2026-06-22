@@ -21,7 +21,8 @@ async function request(audioBlob: Blob, model: string): Promise<string> {
   }
 
   const formData = new FormData();
-  formData.append("file", audioBlob, "audio.webm");
+  const filename = audioBlob.type.includes("wav") ? "audio.wav" : "audio.webm";
+  formData.append("file", audioBlob, filename);
   formData.append("model", model);
 
   console.log(

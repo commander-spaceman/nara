@@ -9,6 +9,7 @@ import { SessionModal } from "./session-modal";
 import { AudioPlayer } from "../audio/audio-player";
 import { ChatService } from "./chat-service";
 import { AudioCapture } from "../modules/audio-capture";
+import { VadDetector } from "../modules/vad";
 import { transcribe } from "../modules/stt";
 import { initApiKey } from "../memory/llm";
 import type { Message } from "../memory/llm";
@@ -30,6 +31,10 @@ export class App {
   private audioPlayer!: AudioPlayer;
   private chatService!: ChatService;
   private audioCapture!: AudioCapture;
+  private vadDetector: VadDetector | null = null;
+  private vadEnabled: boolean;
+  private vadThreshold = 0.015;
+  private vadPlaybackThreshold = 0.045;
   private history: Message[] = [];
   private totalInputTokens = 0;
   private totalOutputTokens = 0;
@@ -45,6 +50,7 @@ export class App {
     this.container = container;
     this.ttsModel = localStorage.getItem("nara_tts_model") || "gpt-4o-mini-tts";
     this.sttModel = localStorage.getItem("nara_stt_model") || "whisper-1";
+    this.vadEnabled = localStorage.getItem("nara_vad_enabled") === "true";
   }
 
   mount(): void {
@@ -116,8 +122,11 @@ export class App {
       onMicStart: () => this.startRecording(),
       onMicStop: () => this.stopRecording(),
       onMicCancel: () => this.cancelAndRestart(),
+      onVadToggle: (enabled) => this.setVadEnabled(enabled),
     });
     this.controls.mount();
+    this.controls.setVadEnabled(this.vadEnabled);
+    if (this.vadEnabled) this.startVad();
 
     this.audioPlayer = new AudioPlayer(
       this.el("model-area"),
@@ -127,11 +136,13 @@ export class App {
       (hint) => {
         this.modelArea?.startSpeaking(hint);
         this.scheduleTranscriptionHide();
+        this.resumeVadForPlayback();
       },
       () => {
         this.clearTranscriptionHideTimer();
         this.inputBar.clearMicStatus();
         this.modelArea?.stopSpeaking();
+        this.resumeVadIfEnabled();
       },
     );
 
@@ -210,8 +221,67 @@ export class App {
     });
   }
 
+  private setVadEnabled(enabled: boolean): void {
+    this.vadEnabled = enabled;
+    localStorage.setItem("nara_vad_enabled", enabled ? "true" : "false");
+    if (enabled) {
+      this.startVad();
+    } else {
+      this.stopVad();
+    }
+  }
+
+  private startVad(): void {
+    if (this.vadDetector) return;
+    this.vadDetector = new VadDetector(
+      {
+        onSpeechStart: () => {
+          if (this.controls.isRecording) return;
+          this.beginVadUtterance();
+        },
+        onUtterance: (blob) => {
+          this.controls.setRecording(false);
+          void this.processRecording(blob);
+        },
+        onError: (message) => {
+          this.subtitleBox.setText(message);
+        },
+      },
+      { threshold: this.vadThreshold },
+    );
+    void this.vadDetector.start();
+  }
+
+  private beginVadUtterance(): void {
+    this.clearTranscriptionHideTimer();
+    this.vadDetector?.setThreshold(this.vadThreshold);
+    this.audioPlayer.stop();
+    this.subtitleBox.clear();
+    this.inputBar.setMode("mic");
+    this.controls.setRecording(true);
+    this.subtitleBox.setStatus("active", "recording...");
+  }
+
+  private stopVad(): void {
+    this.vadDetector?.stop();
+    this.vadDetector = null;
+  }
+
+  private resumeVadIfEnabled(): void {
+    if (!this.vadEnabled) return;
+    this.vadDetector?.setThreshold(this.vadThreshold);
+    this.vadDetector?.resume();
+  }
+
+  private resumeVadForPlayback(): void {
+    if (!this.vadEnabled || !this.vadDetector) return;
+    this.vadDetector.setThreshold(this.vadPlaybackThreshold);
+    this.vadDetector.resume();
+  }
+
   private startRecording(): void {
     this.clearTranscriptionHideTimer();
+    this.vadDetector?.setThreshold(this.vadThreshold);
     this.audioPlayer.stop();
     this.subtitleBox.clear();
     this.inputBar.setMode("mic");
@@ -232,18 +302,23 @@ export class App {
     this.audioCapture.stop();
   }
 
-  private async processRecording(): Promise<void> {
-    const blob = this.audioCapture.getBlob();
-    if (!blob) return;
+  private async processRecording(blob?: Blob): Promise<void> {
+    const audio = blob ?? this.audioCapture.getBlob();
+    if (!audio) {
+      this.resumeVadIfEnabled();
+      return;
+    }
 
+    this.vadDetector?.pause();
     this.controls.setLoading(true);
     this.subtitleBox.setStatus("transcribing", "transcribing...");
 
     try {
-      const text = await transcribe(blob, this.sttModel);
+      const text = await transcribe(audio, this.sttModel);
       if (!text.trim()) {
         this.subtitleBox.setText("Didn't catch that, try again");
         this.controls.setLoading(false);
+        this.resumeVadIfEnabled();
         return;
       }
       this.subtitleBox.setTranscription(text);
@@ -252,6 +327,7 @@ export class App {
       console.error("STT error:", err);
       this.subtitleBox.setText("Didn't catch that, try again");
       this.controls.setLoading(false);
+      this.resumeVadIfEnabled();
     }
   }
 

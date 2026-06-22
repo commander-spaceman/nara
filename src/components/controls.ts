@@ -5,6 +5,7 @@ export interface ControlsCallbacks {
   onMicStart?: () => void;
   onMicStop?: () => void;
   onMicCancel?: () => void;
+  onVadToggle?: (enabled: boolean) => void;
 }
 
 export class Controls {
@@ -13,6 +14,7 @@ export class Controls {
   private activeMode: InputMode | null = null;
   private lastMode: InputMode = "chat";
   private _isRecording = false;
+  private _vadEnabled = false;
   private locked = false;
 
   constructor(container: HTMLElement, callbacks: ControlsCallbacks) {
@@ -29,6 +31,12 @@ export class Controls {
         <span class="ctrl-label">mic</span>
       </div>
       <div class="ctrl-group">
+        <button id="btn-vad" class="ctrl-btn" title="Hands-free (auto voice detection)">
+          <svg viewBox="0 0 24 24"><path d="M3 12h2v2H3v-2zm4-4h2v10H7V8zm4-4h2v18h-2V4zm4 4h2v10h-2V8zm4 4h2v2h-2v-2z" fill="currentColor"/></svg>
+        </button>
+        <span class="ctrl-label">auto</span>
+      </div>
+      <div class="ctrl-group">
         <button id="btn-chat" class="ctrl-btn" title="Text input">
           <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" fill="currentColor"/></svg>
         </button>
@@ -38,6 +46,7 @@ export class Controls {
 
     const btnMic = this.container.querySelector("#btn-mic") as HTMLElement;
     const btnChat = this.container.querySelector("#btn-chat") as HTMLElement;
+    const btnVad = this.container.querySelector("#btn-vad") as HTMLElement;
 
     btnMic.addEventListener("click", () => {
       if (this.activeMode === "mic" && this._isRecording) {
@@ -63,10 +72,31 @@ export class Controls {
       e.preventDefault();
       this.toggleMode("mic");
     });
+
+    btnVad.addEventListener("click", () => {
+      if (this.locked) return;
+      this._vadEnabled = !this._vadEnabled;
+      this.applyVadButtonState();
+      this.callbacks.onVadToggle?.(this._vadEnabled);
+    });
   }
 
   get isRecording(): boolean {
     return this._isRecording;
+  }
+
+  get vadEnabled(): boolean {
+    return this._vadEnabled;
+  }
+
+  setVadEnabled(enabled: boolean): void {
+    this._vadEnabled = enabled;
+    this.applyVadButtonState();
+  }
+
+  private applyVadButtonState(): void {
+    const btnVad = this.container.querySelector("#btn-vad");
+    btnVad?.classList.toggle("active", this._vadEnabled);
   }
 
   setRecording(recording: boolean): void {
