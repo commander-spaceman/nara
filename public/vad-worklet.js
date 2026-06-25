@@ -13,7 +13,10 @@ try {
   tmpOut = rnnoiseModule._malloc(480 * 4);
   rnnoiseReady = true;
   denoiseEnabled = true;
-} catch (_) {}
+  console.log("%c[vad-w]%c RNNoise loaded", "color: #5fdb90", "color: #888");
+} catch (e) {
+  console.log("%c[vad-w]%c RNNoise failed", "color: #e04444", "color: #888", e);
+}
 
 var threshold = 0.015;
 var silenceMs = 800;
@@ -96,7 +99,7 @@ function encodeWav(samples, sr) {
   var len = samples.length;
   var buf = new ArrayBuffer(44 + len * 2);
   var v = new DataView(buf);
-  var write = function(o, s) {
+  var write = function (o, s) {
     for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
   };
   write(0, "RIFF");
@@ -137,6 +140,7 @@ function processFrame(frame) {
         var preroll = readRing();
         utterance = [preroll];
         utteranceLen = preroll.length;
+        console.log("%c[vad-w]%c speech start %crms=%c" + rms.toFixed(4), "color: #8ab4f8", "color: #888", "color: #8ab4f8", "color: #888");
         vadPort.postMessage({ type: "speechStart" });
       }
     } else {
@@ -153,6 +157,8 @@ function processFrame(frame) {
         var samples = flattenUtterance();
         discardUtterance();
         var wav = encodeWav(samples, sampleRate);
+        var kb = (wav.byteLength / 1024).toFixed(0);
+        console.log("%c[vad-w]%c utterance %c" + kb + "KB", "color: #8ab4f8", "color: #888", "color: #8ab4f8");
         vadPort.postMessage({ type: "utterance", wav: wav }, [wav]);
         return;
       }
@@ -163,6 +169,8 @@ function processFrame(frame) {
       var stopSamples = flattenUtterance();
       discardUtterance();
       var stopWav = encodeWav(stopSamples, sampleRate);
+      var maxKb = (stopWav.byteLength / 1024).toFixed(0);
+      console.log("%c[vad-w]%c utterance-max %c" + maxKb + "KB", "color: #8ab4f8", "color: #888", "color: #f0c040");
       vadPort.postMessage({ type: "utterance", wav: stopWav }, [stopWav]);
     }
   }
