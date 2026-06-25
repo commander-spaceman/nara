@@ -10,6 +10,7 @@ export interface VadOptions {
   minSpeechMs?: number;
   prerollMs?: number;
   maxUtteranceMs?: number;
+  startupGraceMs?: number;
   bufferSize?: number;
 }
 
@@ -39,6 +40,7 @@ export class VadDetector {
   private minSpeechMs: number;
   private prerollMs: number;
   private maxUtteranceMs: number;
+  private startupGraceMs: number;
   private bufferSize: number;
 
   private stream: MediaStream | null = null;
@@ -54,6 +56,7 @@ export class VadDetector {
   private utterance: Float32Array[] = [];
   private utteranceLen = 0;
 
+  private graceUntil = 0;
   private running = false;
   private speaking = false;
   private voicedSince: number | null = null;
@@ -66,6 +69,7 @@ export class VadDetector {
     this.minSpeechMs = options.minSpeechMs ?? 200;
     this.prerollMs = options.prerollMs ?? 1000;
     this.maxUtteranceMs = options.maxUtteranceMs ?? 30000;
+    this.startupGraceMs = options.startupGraceMs ?? 800;
     this.bufferSize = options.bufferSize ?? 2048;
   }
 
@@ -103,7 +107,8 @@ export class VadDetector {
 
     this.running = true;
     this.resetState();
-    log("▶", GOOD, "listening", DIM, `thr=${this.threshold}`);
+    this.graceUntil = performance.now() + this.startupGraceMs;
+    log("▶", GOOD, "listening", DIM, `thr=${this.threshold}`, DIM, `grace=${this.startupGraceMs}ms`);
   }
 
   pause(): void {
@@ -124,7 +129,8 @@ export class VadDetector {
     this.discardUtterance();
     this.ringFilled = 0;
     this.ringWrite = 0;
-    log("▶", GOOD, "resumed");
+    this.graceUntil = performance.now() + this.startupGraceMs;
+    log("▶", GOOD, "resumed", DIM, `grace=${this.startupGraceMs}ms`);
   }
 
   stop(): void {
@@ -173,6 +179,7 @@ export class VadDetector {
 
   private onAudio = (e: AudioProcessingEvent): void => {
     if (!this.running || !this.ring) return;
+    if (performance.now() < this.graceUntil) return;
 
     const input = e.inputBuffer.getChannelData(0);
     const frame = new Float32Array(input);
