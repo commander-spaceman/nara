@@ -99,3 +99,19 @@ describe("BUG 2: startRecording should not lower VAD threshold when VAD enabled"
     expect(hasGuard && nearVadDetector).toBe(true);
   });
 });
+
+describe("BUG 3: barge-in should skip pre-roll to avoid capturing Nara's voice", () => {
+  it("worklet skips ring pre-roll when threshold is elevated (barge-in mode)", () => {
+    const workletSrc = readFileSync(join(root, "public", "vad-worklet.js"), "utf-8");
+
+    const speechStartSection = workletSrc.substring(
+      workletSrc.indexOf("speaking = true;"),
+      workletSrc.indexOf("speaking = true;") + 150,
+    );
+
+    const usesEmptyUtteranceOnBargeIn =
+      workletSrc.includes("bargeIn") &&
+      /bargeIn[\s\S]{0,100}utterance\s*=\s*\[\]/.test(workletSrc);
+    expect(usesEmptyUtteranceOnBargeIn).toBe(true);
+  });
+});

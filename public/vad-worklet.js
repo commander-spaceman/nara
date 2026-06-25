@@ -42,6 +42,8 @@ var utteranceLen = 0;
 
 var vadPort = null;
 
+var bargeIn = false;
+
 function denoiseFrame(frame) {
   if (!denoiseEnabled || !rnnoiseReady) return frame;
   rnnoiseModule.HEAPF32.set(frame, tmpIn >> 2);
@@ -137,9 +139,14 @@ function processFrame(frame) {
       if (now - voicedSince >= minSpeechMs) {
         speaking = true;
         silentSince = null;
-        var preroll = readRing();
-        utterance = [preroll];
-        utteranceLen = preroll.length;
+        if (bargeIn) {
+          utterance = [];
+          utteranceLen = 0;
+        } else {
+          var preroll = readRing();
+          utterance = [preroll];
+          utteranceLen = preroll.length;
+        }
         console.log("%c[vad-w]%c speech start %crms=%c" + rms.toFixed(4), "color: #8ab4f8", "color: #888", "color: #8ab4f8", "color: #888");
         vadPort.postMessage({ type: "speechStart" });
       }
@@ -212,6 +219,7 @@ class VadProcessor extends AudioWorkletProcessor {
         accPos = 0;
       } else if (msg.type === "threshold") {
         threshold = msg.value;
+        bargeIn = threshold > 0.02;
       } else if (msg.type === "denoise") {
         denoiseEnabled = msg.enabled && rnnoiseReady;
       } else if (msg.type === "stop") {
