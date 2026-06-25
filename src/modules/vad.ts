@@ -37,6 +37,7 @@ export class VadDetector {
   private stream: MediaStream | null = null;
   private ctx: AudioContext | null = null;
   private workletNode: AudioWorkletNode | null = null;
+  private sink: GainNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private running = false;
   private threshold: number;
@@ -109,6 +110,12 @@ export class VadDetector {
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.source.connect(this.workletNode);
 
+    const sink = this.ctx.createGain();
+    sink.gain.value = 0;
+    this.workletNode.connect(sink);
+    sink.connect(this.ctx.destination);
+    this.sink = sink;
+
     this.running = true;
     this.resumeWorklet();
     log(
@@ -152,6 +159,9 @@ export class VadDetector {
 
     this.source?.disconnect();
     this.source = null;
+
+    this.sink?.disconnect();
+    this.sink = null;
 
     if (this.ctx) {
       this.ctx.close().catch(() => {});
