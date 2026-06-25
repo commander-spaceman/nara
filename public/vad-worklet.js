@@ -37,10 +37,12 @@ var ringFilled = 0;
 var utterance = [];
 var utteranceLen = 0;
 
+var vadPort = null;
+
 function denoiseFrame(frame) {
   if (!denoiseEnabled || !rnnoiseReady) return frame;
   rnnoiseModule.HEAPF32.set(frame, tmpIn >> 2);
-  rnnoiseModule._rnnoise_process_frame(denoiseState, tmpIn, tmpOut);
+  rnnoiseModule._rnnoise_process_frame(denoiseState, tmpOut, tmpIn);
   return new Float32Array(rnnoiseModule.HEAPF32.buffer, tmpOut, 480);
 }
 
@@ -135,7 +137,7 @@ function processFrame(frame) {
         var preroll = readRing();
         utterance = [preroll];
         utteranceLen = preroll.length;
-        self.postMessage({ type: "speechStart" });
+        vadPort.postMessage({ type: "speechStart" });
       }
     } else {
       voicedSince = null;
@@ -151,7 +153,7 @@ function processFrame(frame) {
         var samples = flattenUtterance();
         discardUtterance();
         var wav = encodeWav(samples, sampleRate);
-        self.postMessage({ type: "utterance", wav: wav }, [wav]);
+        vadPort.postMessage({ type: "utterance", wav: wav }, [wav]);
         return;
       }
     }
@@ -161,7 +163,7 @@ function processFrame(frame) {
       var stopSamples = flattenUtterance();
       discardUtterance();
       var stopWav = encodeWav(stopSamples, sampleRate);
-      self.postMessage({ type: "utterance", wav: stopWav }, [stopWav]);
+      vadPort.postMessage({ type: "utterance", wav: stopWav }, [stopWav]);
     }
   }
 }
@@ -169,6 +171,7 @@ function processFrame(frame) {
 class VadProcessor extends AudioWorkletProcessor {
   constructor(opts) {
     super();
+
     if (opts.processorOptions) {
       threshold = opts.processorOptions.threshold ?? threshold;
       silenceMs = opts.processorOptions.silenceMs ?? silenceMs;
@@ -181,6 +184,7 @@ class VadProcessor extends AudioWorkletProcessor {
 
     var ringSamples = Math.ceil((prerollMs / 1000) * sampleRate);
     ring = new Float32Array(ringSamples);
+    vadPort = this.port;
 
     this.port.onmessage = function (e) {
       var msg = e.data;
