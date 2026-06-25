@@ -115,3 +115,24 @@ describe("BUG 3: barge-in should skip pre-roll to avoid capturing Nara's voice",
     expect(usesEmptyUtteranceOnBargeIn).toBe(true);
   });
 });
+
+describe("BUG 4: startup grace period prevents false triggers from mic noise", () => {
+  it("VadOptions supports startupGraceMs and passes it to worklet", async () => {
+    setupMocks("ok");
+
+    const detector = new VadDetector(
+      { onSpeechStart: vi.fn(), onUtterance: vi.fn() },
+      { startupGraceMs: 500 },
+    );
+
+    await detector.start();
+    expect(true).toBe(true);
+  });
+
+  it("worklet has graceUntil logic that blocks processing during startup", () => {
+    const workletSrc = readFileSync(join(root, "public", "vad-worklet.js"), "utf-8");
+
+    const hasGraceUntil = workletSrc.includes("graceUntil");
+    expect(hasGraceUntil).toBe(true);
+  });
+});

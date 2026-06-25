@@ -44,6 +44,9 @@ var vadPort = null;
 
 var bargeIn = false;
 
+var graceUntil = 0;
+var startupGraceMs = 800;
+
 function denoiseFrame(frame) {
   if (!denoiseEnabled || !rnnoiseReady) return frame;
   rnnoiseModule.HEAPF32.set(frame, tmpIn >> 2);
@@ -195,6 +198,7 @@ class VadProcessor extends AudioWorkletProcessor {
       maxUtteranceMs = opts.processorOptions.maxUtteranceMs ?? maxUtteranceMs;
       denoiseEnabled = opts.processorOptions.denoise ?? denoiseEnabled;
       sampleRate = opts.processorOptions.sampleRate ?? sampleRate;
+      startupGraceMs = opts.processorOptions.startupGraceMs ?? startupGraceMs;
     }
 
     var ringSamples = Math.ceil((prerollMs / 1000) * sampleRate);
@@ -217,6 +221,7 @@ class VadProcessor extends AudioWorkletProcessor {
         ringFilled = 0;
         ringWrite = 0;
         accPos = 0;
+        graceUntil = currentTime + startupGraceMs / 1000;
       } else if (msg.type === "threshold") {
         threshold = msg.value;
         bargeIn = threshold > 0.02;
@@ -244,8 +249,10 @@ class VadProcessor extends AudioWorkletProcessor {
   }
 
   process(inputs) {
+    if (!running || currentTime < graceUntil) return true;
+
     var input = inputs[0] ? inputs[0][0] : null;
-    if (!input || !running) return true;
+    if (!input) return true;
 
     for (var i = 0; i < input.length; i++) {
       acc[accPos++] = input[i];

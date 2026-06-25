@@ -11,6 +11,7 @@ export interface VadOptions {
   prerollMs?: number;
   maxUtteranceMs?: number;
   denoise?: boolean;
+  startupGraceMs?: number;
 }
 
 const VAD = "color: #8ab4f8; font-weight: bold";
@@ -46,6 +47,7 @@ export class VadDetector {
   private prerollMs: number;
   private maxUtteranceMs: number;
   private denoise: boolean;
+  private startupGraceMs: number;
 
   constructor(events: VadEvents, options: VadOptions = {}) {
     this.events = events;
@@ -55,6 +57,7 @@ export class VadDetector {
     this.prerollMs = options.prerollMs ?? 1000;
     this.maxUtteranceMs = options.maxUtteranceMs ?? 30000;
     this.denoise = options.denoise ?? true;
+    this.startupGraceMs = options.startupGraceMs ?? 800;
   }
 
   async start(): Promise<void> {
@@ -100,6 +103,7 @@ export class VadDetector {
         maxUtteranceMs: this.maxUtteranceMs,
         denoise: this.denoise,
         sampleRate,
+        startupGraceMs: this.startupGraceMs,
       },
     });
 
