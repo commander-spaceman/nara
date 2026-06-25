@@ -306,7 +306,7 @@ export class App {
 
   private startRecording(): void {
     this.clearTranscriptionHideTimer();
-    this.vadDetector?.setThreshold(this.vadThreshold);
+    if (!this.vadEnabled) this.vadDetector?.setThreshold(this.vadThreshold);
     this.audioPlayer.stop();
     this.subtitleBox.clear();
     this.inputBar.setMode("mic");

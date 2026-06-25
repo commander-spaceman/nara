@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { VadDetector } from "../src/modules/vad";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = join(__dirname, "..");
 
 const mockStream = {
   getTracks: () => [{ stop: vi.fn() }],
@@ -29,7 +33,7 @@ function createMockWorkletNode() {
   };
 }
 
-function setupMocks(addModuleBehaviour: "ok" | "fail") {
+function setupMocks(addModuleBehaviour: "ok" | "fail" = "ok") {
   vi.stubGlobal("navigator", {
     mediaDevices: {
       getUserMedia: vi.fn().mockResolvedValue(mockStream),
@@ -80,5 +84,18 @@ describe("BUG 1: addModule error handling", () => {
 
     await detector.start();
     expect(onError).toHaveBeenCalledWith(expect.stringContaining("worklet"));
+  });
+});
+
+describe("BUG 2: startRecording should not lower VAD threshold when VAD enabled", () => {
+  it("startRecording guards setThreshold with !this.vadEnabled condition", () => {
+    const appSrc = readFileSync(join(root, "src", "components", "app.ts"), "utf-8");
+
+    const hasUnconditionalSetThreshold = /startRecording[^{]*{[^}]*vadDetector\?\s*\.\s*setThreshold/.test(appSrc);
+    expect(hasUnconditionalSetThreshold).toBe(true);
+
+    const hasGuard = /if\s*\(\s*!\s*this\s*\.\s*vadEnabled\s*\)/.test(appSrc);
+    const nearVadDetector = /startRecording[\s\S]{0,300}if\s*\(\s*!\s*this\s*\.\s*vadEnabled\s*\)[\s\S]{0,80}setThreshold/.test(appSrc);
+    expect(hasGuard && nearVadDetector).toBe(true);
   });
 });
