@@ -75,7 +75,7 @@ export class App {
     this.container = container;
     this.ttsModel = localStorage.getItem("nara_tts_model") || "gpt-4o-mini-tts";
     this.sttModel = localStorage.getItem("nara_stt_model") || "whisper-1";
-    this.vadEnabled = localStorage.getItem("nara_vad_enabled") === "true";
+    this.vadEnabled = false;
   }
 
   mount(): void {
@@ -151,7 +151,6 @@ export class App {
       onVadToggle: (enabled) => this.setVadEnabled(enabled),
     });
     this.controls.mount();
-    this.controls.setVadEnabled(this.vadEnabled);
     if (this.vadEnabled) this.startVad();
 
     this.audioPlayer = new AudioPlayer(
@@ -250,7 +249,6 @@ export class App {
 
   private setVadEnabled(enabled: boolean): void {
     this.vadEnabled = enabled;
-    localStorage.setItem("nara_vad_enabled", enabled ? "true" : "false");
     if (enabled) {
       this.startVad();
     } else {
