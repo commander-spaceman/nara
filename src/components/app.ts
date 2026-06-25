@@ -143,6 +143,7 @@ export class App {
     this.controls = new Controls(this.el("controls"), {
       onModeChange: (mode) => {
         this.inputBar.setMode(mode);
+        if (mode === "chat") this.audioPlayer.stop();
       },
       onMicStart: () => this.startRecording(),
       onMicStop: () => this.stopRecording(),

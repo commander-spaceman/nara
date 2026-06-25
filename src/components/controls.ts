@@ -75,8 +75,7 @@ export class Controls {
 
     btnVad.addEventListener("click", () => {
       if (this.locked) return;
-      this._vadEnabled = !this._vadEnabled;
-      this.applyVadButtonState();
+      this.setVadEnabled(!this._vadEnabled);
       this.callbacks.onVadToggle?.(this._vadEnabled);
     });
   }
@@ -92,6 +91,15 @@ export class Controls {
   setVadEnabled(enabled: boolean): void {
     this._vadEnabled = enabled;
     this.applyVadButtonState();
+    if (enabled) {
+      this.activeMode = null;
+      this._isRecording = false;
+      this.locked = false;
+      const btnMic = this.container.querySelector("#btn-mic")!;
+      const btnChat = this.container.querySelector("#btn-chat")!;
+      btnMic.classList.remove("active", "recording", "loading");
+      btnChat.classList.remove("active", "recording", "loading");
+    }
   }
 
   private applyVadButtonState(): void {
@@ -101,8 +109,9 @@ export class Controls {
 
   setRecording(recording: boolean): void {
     this._isRecording = recording;
-    const btnMic = this.container.querySelector("#btn-mic")!;
-    btnMic.classList.toggle("recording", recording);
+    const target = this._vadEnabled ? "#btn-vad" : "#btn-mic";
+    const btn = this.container.querySelector(target)!;
+    btn.classList.toggle("recording", recording);
   }
 
   private toggleMode(mode: InputMode): void {
@@ -123,13 +132,17 @@ export class Controls {
 
   setLoading(loading: boolean): void {
     this.locked = loading;
-    if (!this.activeMode) return;
-    const btn = this.container.querySelector(
-      this.activeMode === "chat" ? "#btn-chat" : "#btn-mic",
-    );
-    if (btn) {
-      btn.classList.toggle("loading", loading);
+    let btn: HTMLElement | null;
+    if (this._vadEnabled) {
+      btn = this.container.querySelector("#btn-vad");
+    } else if (this.activeMode) {
+      btn = this.container.querySelector(
+        this.activeMode === "chat" ? "#btn-chat" : "#btn-mic",
+      );
+    } else {
+      return;
     }
+    btn?.classList.toggle("loading", loading);
   }
 
   toggleInput(): void {
