@@ -131,6 +131,7 @@ export class VadDetector {
 
   pause(): void {
     if (!this.running || !this.workletNode) return;
+    this.running = false;
     this.workletNode.port.postMessage({ type: "pause" });
     log("⏸", DIM, "paused");
   }
