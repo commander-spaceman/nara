@@ -78,7 +78,18 @@ export class VadDetector {
     }
     const sampleRate = this.ctx.sampleRate;
 
-    await this.ctx.audioWorklet.addModule("/vad-worklet.js");
+    try {
+      await this.ctx.audioWorklet.addModule("/vad-worklet.js");
+    } catch (err) {
+      const message = `worklet failed to load: ${err}`;
+      log("✗", BAD, message);
+      this.events.onError?.(message);
+      this.ctx.close().catch(() => {});
+      this.ctx = null;
+      this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null;
+      return;
+    }
 
     this.workletNode = new AudioWorkletNode(this.ctx, "vad-processor", {
       processorOptions: {
