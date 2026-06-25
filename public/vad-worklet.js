@@ -124,7 +124,7 @@ function processFrame(frame) {
   writeRing(frame);
   if (speaking) writeUtterance(frame);
 
-  var now = performance.now();
+  var now = currentTime * 1000;
 
   if (!speaking) {
     if (rms > threshold) {
