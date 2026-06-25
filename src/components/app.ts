@@ -13,12 +13,37 @@ import { VadDetector } from "../modules/vad";
 import { transcribe } from "../modules/stt";
 import { initApiKey } from "../memory/llm";
 import type { Message } from "../memory/llm";
-import { startSession, endSession, getSessionId } from "../memory/db";
+import { startSession, endSession, getSessionId, getProfile, deleteProfile, clearProfile } from "../memory/db";
 import { recallPrevious } from "../memory/recall";
 import { TTS_MODELS } from "../modules/tts";
 import { STT_MODELS } from "../modules/stt";
 
 export type InputMode = "chat" | "mic";
+
+const AI_IDENTITY_VALUES = new Set([
+  "nara",
+  "nara'korrin",
+  "narakorrin",
+  "quarian",
+]);
+
+async function cleanupContaminatedProfile(): Promise<void> {
+  try {
+    const profile = await getProfile();
+    for (const { key, value } of profile) {
+      if (AI_IDENTITY_VALUES.has(value.toLowerCase().trim())) {
+        await deleteProfile(key);
+        console.log(`[profile] removed contaminated entry: ${key}=${value}`);
+      }
+      if (key === "name" && value.toLowerCase().trim().startsWith("nara")) {
+        await deleteProfile(key);
+        console.log(`[profile] removed contaminated name: ${value}`);
+      }
+    }
+  } catch {
+    // non-critical
+  }
+}
 
 export class App {
   private container: HTMLElement;
@@ -200,6 +225,7 @@ export class App {
     startSession()
       .then(() => {
         this.debugPanel.update({ sessionId: getSessionId().slice(0, 10) });
+        return cleanupContaminatedProfile();
       })
       .catch(() => {});
 
@@ -361,6 +387,16 @@ export class App {
       await this.handleRecall();
       return;
     }
+    if (text === "/clearprofile") {
+      clearProfile()
+        .then(() => {
+          this.subtitleBox.setText("profile cleared");
+        })
+        .catch(() => {
+          this.subtitleBox.setText("failed to clear profile");
+        });
+      return;
+    }
     if (text === "/exit") {
       await endSession().catch(() => {});
       await getCurrentWindow().close();
@@ -376,7 +412,7 @@ export class App {
       text.startsWith("/recall ")
     ) {
       this.subtitleBox.setText(
-        "use /help, /history, /new, /debug, /session, /recall, or /exit",
+        "use /help, /history, /new, /debug, /session, /recall, /clearprofile, or /exit",
       );
       return;
     }

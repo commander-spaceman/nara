@@ -55,6 +55,8 @@ pub fn run() {
             commands::memory::memory_search,
             commands::memory::memory_get_profile,
             commands::memory::memory_upsert_profile,
+            commands::memory::memory_clear_profile,
+            commands::memory::memory_delete_profile,
             commands::quarian_fx::quarian_fx,
         ])
         .setup(|app| {

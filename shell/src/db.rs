@@ -255,6 +255,18 @@ impl Database {
         )?;
         Ok(())
     }
+
+    pub fn clear_profile(&self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM user_profile", [])?;
+        Ok(())
+    }
+
+    pub fn delete_profile(&self, key: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM user_profile WHERE key = ?1", params![key])?;
+        Ok(())
+    }
 }
 
 impl Drop for Database {

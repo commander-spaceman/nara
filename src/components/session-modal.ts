@@ -77,6 +77,8 @@ export class SessionModal {
         <div><code>/new</code> starts a fresh chat session</div>
         <div><code>/debug</code> toggles the debug panel</div>
         <div><code>/session</code> shows the current session info</div>
+        <div><code>/recall</code> loads your last session from memory</div>
+        <div><code>/clearprofile</code> resets Nara's memory of you</div>
         <div><code>/exit</code> closes Nara</div>
       </div>
     `;

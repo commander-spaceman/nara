@@ -87,3 +87,11 @@ export async function getProfile(): Promise<ProfileEntry[]> {
 export async function upsertProfile(key: string, value: string): Promise<void> {
   await invoke("memory_upsert_profile", { key, value });
 }
+
+export async function clearProfile(): Promise<void> {
+  await invoke("memory_clear_profile");
+}
+
+export async function deleteProfile(key: string): Promise<void> {
+  await invoke("memory_delete_profile", { key });
+}

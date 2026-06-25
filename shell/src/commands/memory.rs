@@ -111,3 +111,13 @@ pub fn memory_upsert_profile(
 ) -> Result<(), String> {
     db.upsert_profile(&key, &value).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn memory_clear_profile(db: State<'_, Database>) -> Result<(), String> {
+    db.clear_profile().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn memory_delete_profile(db: State<'_, Database>, key: String) -> Result<(), String> {
+    db.delete_profile(&key).map_err(|e| e.to_string())
+}
