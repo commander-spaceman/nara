@@ -10,8 +10,7 @@ export interface VadOptions {
   minSpeechMs?: number;
   prerollMs?: number;
   maxUtteranceMs?: number;
-  startupGraceMs?: number;
-  bufferSize?: number;
+  denoise?: boolean;
 }
 
 const VAD = "color: #8ab4f8; font-weight: bold";
@@ -33,34 +32,257 @@ function log(tag: string, color: string, ...args: unknown[]) {
   console.log(fmt, ...styles);
 }
 
+const WORKLET_CODE = `
+var rnnoiseReady = false;
+var denoiseState = 0;
+var tmpIn = 0;
+var tmpOut = 0;
+var denoiseEnabled = false;
+
+try {
+  var rnnoiseModule = createRNNWasmModuleSync();
+  denoiseState = rnnoiseModule._rnnoise_create(0);
+  tmpIn = rnnoiseModule._malloc(480 * 4);
+  tmpOut = rnnoiseModule._malloc(480 * 4);
+  rnnoiseReady = true;
+  denoiseEnabled = true;
+} catch (_) { /* rnnoise unavailable — passthrough */ }
+
+var threshold = 0.015;
+var silenceMs = 800;
+var minSpeechMs = 200;
+var prerollMs = 1000;
+var maxUtteranceMs = 30000;
+var sampleRate = 48000;
+
+var running = false;
+var speaking = false;
+var voicedSince = null;
+var silentSince = null;
+
+var acc = new Float32Array(480);
+var accPos = 0;
+
+var ring = null;
+var ringWrite = 0;
+var ringFilled = 0;
+
+var utterance = [];
+var utteranceLen = 0;
+
+function denoiseFrame(frame) {
+  if (!denoiseEnabled || !rnnoiseReady) return frame;
+  rnnoiseModule.HEAPF32.set(frame, tmpIn >> 2);
+  rnnoiseModule._rnnoise_process_frame(denoiseState, tmpIn, tmpOut);
+  return new Float32Array(rnnoiseModule.HEAPF32.buffer, tmpOut, 480);
+}
+
+function computeRms(frame) {
+  var sum = 0;
+  for (var i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+  return Math.sqrt(sum / frame.length);
+}
+
+function writeRing(frame) {
+  for (var i = 0; i < frame.length; i++) {
+    ring[ringWrite] = frame[i];
+    ringWrite = (ringWrite + 1) % ring.length;
+    ringFilled = Math.min(ringFilled + 1, ring.length);
+  }
+}
+
+function readRing() {
+  var out = new Float32Array(ringFilled);
+  var start = (ringWrite - ringFilled + ring.length) % ring.length;
+  for (var i = 0; i < ringFilled; i++) out[i] = ring[(start + i) % ring.length];
+  return out;
+}
+
+function writeUtterance(frame) {
+  utterance.push(new Float32Array(frame));
+  utteranceLen += frame.length;
+}
+
+function flattenUtterance() {
+  var out = new Float32Array(utteranceLen);
+  var offset = 0;
+  for (var i = 0; i < utterance.length; i++) {
+    out.set(utterance[i], offset);
+    offset += utterance[i].length;
+  }
+  return out;
+}
+
+function discardUtterance() {
+  utterance = [];
+  utteranceLen = 0;
+}
+
+function resetState() {
+  voicedSince = null;
+  silentSince = null;
+}
+
+function encodeWav(samples, sr) {
+  var len = samples.length;
+  var buf = new ArrayBuffer(44 + len * 2);
+  var v = new DataView(buf);
+  var write = function(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  write(0, "RIFF");
+  v.setUint32(4, 36 + len * 2, true);
+  write(8, "WAVE");
+  write(12, "fmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true);
+  v.setUint32(28, sr * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  write(36, "data");
+  v.setUint32(40, len * 2, true);
+  var offset = 44;
+  for (var i = 0; i < len; i++) {
+    var s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    offset += 2;
+  }
+  return buf;
+}
+
+function processFrame(frame) {
+  var rms = computeRms(frame);
+  writeRing(frame);
+  if (speaking) writeUtterance(frame);
+
+  var now = performance.now();
+
+  if (!speaking) {
+    if (rms > threshold) {
+      if (voicedSince == null) voicedSince = now;
+      if (now - voicedSince >= minSpeechMs) {
+        speaking = true;
+        silentSince = null;
+        var preroll = readRing();
+        utterance = [preroll];
+        utteranceLen = preroll.length;
+        self.postMessage({ type: "speechStart" });
+      }
+    } else {
+      voicedSince = null;
+    }
+  } else {
+    if (rms > threshold) {
+      silentSince = null;
+    } else {
+      if (silentSince == null) silentSince = now;
+      if (now - silentSince >= silenceMs) {
+        speaking = false;
+        voicedSince = null;
+        var samples = flattenUtterance();
+        discardUtterance();
+        var wav = encodeWav(samples, sampleRate);
+        self.postMessage({ type: "utterance", wav: wav }, [wav]);
+        return;
+      }
+    }
+    if (utteranceLen >= (maxUtteranceMs / 1000) * sampleRate) {
+      speaking = false;
+      voicedSince = null;
+      var stopSamples = flattenUtterance();
+      discardUtterance();
+      var stopWav = encodeWav(stopSamples, sampleRate);
+      self.postMessage({ type: "utterance", wav: stopWav }, [stopWav]);
+    }
+  }
+}
+
+class VadProcessor extends AudioWorkletProcessor {
+  constructor(opts) {
+    super();
+    if (opts.processorOptions) {
+      threshold = opts.processorOptions.threshold ?? threshold;
+      silenceMs = opts.processorOptions.silenceMs ?? silenceMs;
+      minSpeechMs = opts.processorOptions.minSpeechMs ?? minSpeechMs;
+      prerollMs = opts.processorOptions.prerollMs ?? prerollMs;
+      maxUtteranceMs = opts.processorOptions.maxUtteranceMs ?? maxUtteranceMs;
+      denoiseEnabled = opts.processorOptions.denoise ?? denoiseEnabled;
+      sampleRate = opts.processorOptions.sampleRate ?? sampleRate;
+    }
+
+    this.port.onmessage = function(e) {
+      var msg = e.data;
+      if (msg.type === "pause") {
+        running = false;
+        speaking = false;
+        resetState();
+        discardUtterance();
+      } else if (msg.type === "resume") {
+        if (!ring) return;
+        running = true;
+        speaking = false;
+        resetState();
+        discardUtterance();
+        ringFilled = 0;
+        ringWrite = 0;
+        accPos = 0;
+      } else if (msg.type === "threshold") {
+        threshold = msg.value;
+      } else if (msg.type === "denoise") {
+        denoiseEnabled = msg.enabled && rnnoiseReady;
+      } else if (msg.type === "stop") {
+        running = false;
+        speaking = false;
+        resetState();
+        discardUtterance();
+        if (rnnoiseReady) {
+          rnnoiseModule._free(tmpIn);
+          rnnoiseModule._free(tmpOut);
+          rnnoiseModule._rnnoise_destroy(denoiseState);
+          rnnoiseReady = false;
+          denoiseState = 0;
+        }
+      } else if (msg.type === "config") {
+        if (msg.threshold != null) threshold = msg.threshold;
+        if (msg.silenceMs != null) silenceMs = msg.silenceMs;
+        if (msg.minSpeechMs != null) minSpeechMs = msg.minSpeechMs;
+        if (msg.denoise != null) denoiseEnabled = msg.denoise && rnnoiseReady;
+      }
+    };
+  }
+
+  process(inputs) {
+    var input = inputs[0] ? inputs[0][0] : null;
+    if (!input || !running) return true;
+
+    for (var i = 0; i < input.length; i++) {
+      acc[accPos++] = input[i];
+      if (accPos === 480) {
+        var clean = denoiseFrame(acc);
+        processFrame(clean);
+        accPos = 0;
+      }
+    }
+    return true;
+  }
+}
+
+registerProcessor("vad-processor", VadProcessor);
+`;
+
 export class VadDetector {
   private events: VadEvents;
+  private stream: MediaStream | null = null;
+  private ctx: AudioContext | null = null;
+  private workletNode: AudioWorkletNode | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
+  private running = false;
   private threshold: number;
   private silenceMs: number;
   private minSpeechMs: number;
   private prerollMs: number;
   private maxUtteranceMs: number;
-  private startupGraceMs: number;
-  private bufferSize: number;
-
-  private stream: MediaStream | null = null;
-  private ctx: AudioContext | null = null;
-  private source: MediaStreamAudioSourceNode | null = null;
-  private processor: ScriptProcessorNode | null = null;
-  private sampleRate = 48000;
-
-  private ring: Float32Array | null = null;
-  private ringWrite = 0;
-  private ringFilled = 0;
-
-  private utterance: Float32Array[] = [];
-  private utteranceLen = 0;
-
-  private graceUntil = 0;
-  private running = false;
-  private speaking = false;
-  private voicedSince: number | null = null;
-  private silentSince: number | null = null;
+  private denoise: boolean;
 
   constructor(events: VadEvents, options: VadOptions = {}) {
     this.events = events;
@@ -69,8 +291,7 @@ export class VadDetector {
     this.minSpeechMs = options.minSpeechMs ?? 200;
     this.prerollMs = options.prerollMs ?? 1000;
     this.maxUtteranceMs = options.maxUtteranceMs ?? 30000;
-    this.startupGraceMs = options.startupGraceMs ?? 800;
-    this.bufferSize = options.bufferSize ?? 2048;
+    this.denoise = options.denoise ?? true;
   }
 
   async start(): Promise<void> {
@@ -92,61 +313,85 @@ export class VadDetector {
     if (this.ctx.state === "suspended") {
       await this.ctx.resume();
     }
-    this.sampleRate = this.ctx.sampleRate;
+    const sampleRate = this.ctx.sampleRate;
 
-    const ringSamples = Math.ceil((this.prerollMs / 1000) * this.sampleRate);
-    this.ring = new Float32Array(ringSamples);
-    this.ringWrite = 0;
-    this.ringFilled = 0;
+    const workletUrl = await this.buildWorklet();
+    await this.ctx.audioWorklet.addModule(workletUrl);
+    URL.revokeObjectURL(workletUrl);
+
+    this.workletNode = new AudioWorkletNode(this.ctx, "vad-processor", {
+      processorOptions: {
+        threshold: this.threshold,
+        silenceMs: this.silenceMs,
+        minSpeechMs: this.minSpeechMs,
+        prerollMs: this.prerollMs,
+        maxUtteranceMs: this.maxUtteranceMs,
+        denoise: this.denoise,
+        sampleRate,
+      },
+    });
+
+    this.workletNode.port.onmessage = (e: MessageEvent) => {
+      const msg = e.data;
+      if (msg.type === "speechStart") {
+        this.events.onSpeechStart();
+      } else if (msg.type === "utterance") {
+        const blob = new Blob([msg.wav], { type: "audio/wav" });
+        log("○", VAD, "utterance", DIM, `${(blob.size / 1024).toFixed(0)}KB`);
+        this.events.onUtterance(blob);
+      }
+    };
+
+    this.workletNode.port.onmessageerror = () => {
+      log("✗", BAD, "worklet message error");
+    };
 
     this.source = this.ctx.createMediaStreamSource(this.stream);
-    this.processor = this.ctx.createScriptProcessor(this.bufferSize, 1, 1);
-    this.processor.onaudioprocess = this.onAudio;
-    this.source.connect(this.processor);
-    this.processor.connect(this.ctx.destination);
+    this.source.connect(this.workletNode);
 
     this.running = true;
-    this.resetState();
-    this.graceUntil = performance.now() + this.startupGraceMs;
-    log("▶", GOOD, "listening", DIM, `thr=${this.threshold}`, DIM, `grace=${this.startupGraceMs}ms`);
+    this.resumeWorklet();
+    log(
+      "▶",
+      GOOD,
+      "listening",
+      DIM,
+      `thr=${this.threshold}`,
+      this.denoise ? DIM : "",
+      this.denoise ? "rnnoise" : "",
+    );
   }
 
   pause(): void {
-    if (!this.running) return;
-    this.running = false;
-    this.speaking = false;
-    this.resetState();
-    this.discardUtterance();
+    if (!this.running || !this.workletNode) return;
+    this.workletNode.port.postMessage({ type: "pause" });
     log("⏸", DIM, "paused");
   }
 
   resume(): void {
     if (this.running) return;
-    if (!this.processor) return;
+    if (!this.workletNode) return;
+    this.resumeWorklet();
+  }
+
+  private resumeWorklet(): void {
     this.running = true;
-    this.speaking = false;
-    this.resetState();
-    this.discardUtterance();
-    this.ringFilled = 0;
-    this.ringWrite = 0;
-    this.graceUntil = performance.now() + this.startupGraceMs;
-    log("▶", GOOD, "resumed", DIM, `grace=${this.startupGraceMs}ms`);
+    this.workletNode!.port.postMessage({ type: "resume" });
+    log("▶", GOOD, "resumed");
   }
 
   stop(): void {
     this.running = false;
-    this.speaking = false;
-    this.resetState();
-    this.discardUtterance();
 
-    if (this.processor) {
-      this.processor.onaudioprocess = null;
-      this.processor.disconnect();
-      this.processor = null;
+    if (this.workletNode) {
+      this.workletNode.port.postMessage({ type: "stop" });
+      this.workletNode.port.onmessage = null;
+      this.workletNode.disconnect();
+      this.workletNode = null;
     }
+
     this.source?.disconnect();
     this.source = null;
-    this.ring = null;
 
     if (this.ctx) {
       this.ctx.close().catch(() => {});
@@ -165,149 +410,26 @@ export class VadDetector {
 
   setThreshold(threshold: number): void {
     this.threshold = threshold;
+    this.workletNode?.port.postMessage({ type: "threshold", value: threshold });
   }
 
-  private resetState(): void {
-    this.voicedSince = null;
-    this.silentSince = null;
+  setDenoise(enabled: boolean): void {
+    this.denoise = enabled;
+    this.workletNode?.port.postMessage({ type: "denoise", enabled });
   }
 
-  private discardUtterance(): void {
-    this.utterance = [];
-    this.utteranceLen = 0;
-  }
-
-  private onAudio = (e: AudioProcessingEvent): void => {
-    if (!this.running || !this.ring) return;
-    if (performance.now() < this.graceUntil) return;
-
-    const input = e.inputBuffer.getChannelData(0);
-    const frame = new Float32Array(input);
-    this.writeRing(frame);
-
-    if (this.speaking) {
-      this.utterance.push(frame);
-      this.utteranceLen += frame.length;
+  private async buildWorklet(): Promise<string> {
+    let rnnoiseSrc = "";
+    try {
+      const r = await fetch("/rnnoise-sync.js");
+      if (r.ok) rnnoiseSrc = await r.text();
+    } catch {
+      /* offline or missing file — worklet runs without denoising */
     }
-
-    const rms = this.computeRms(frame);
-    const now = performance.now();
-
-    if (!this.speaking) {
-      if (rms > this.threshold) {
-        if (this.voicedSince == null) this.voicedSince = now;
-        if (now - this.voicedSince >= this.minSpeechMs) {
-          this.beginUtterance();
-        }
-      } else {
-        this.voicedSince = null;
-      }
-    } else {
-      if (rms > this.threshold) {
-        this.silentSince = null;
-      } else {
-        if (this.silentSince == null) this.silentSince = now;
-        if (now - this.silentSince >= this.silenceMs) {
-          this.endUtterance();
-          return;
-        }
-      }
-      const maxSamples = (this.maxUtteranceMs / 1000) * this.sampleRate;
-      if (this.utteranceLen >= maxSamples) {
-        this.endUtterance();
-      }
-    }
-  };
-
-  private beginUtterance(): void {
-    this.speaking = true;
-    this.silentSince = null;
-    const preroll = this.readRing();
-    this.utterance = [preroll];
-    this.utteranceLen = preroll.length;
-    log("●", VAD, "speech start");
-    this.events.onSpeechStart();
-  }
-
-  private endUtterance(): void {
-    this.speaking = false;
-    this.voicedSince = null;
-    const samples = this.flattenUtterance();
-    this.discardUtterance();
-    const blob = this.encodeWav(samples, this.sampleRate);
-    log("○", VAD, "speech end", DIM, `${(blob.size / 1024).toFixed(0)}KB`);
-    this.events.onUtterance(blob);
-  }
-
-  private writeRing(frame: Float32Array): void {
-    const ring = this.ring!;
-    for (let i = 0; i < frame.length; i++) {
-      ring[this.ringWrite] = frame[i];
-      this.ringWrite = (this.ringWrite + 1) % ring.length;
-    }
-    this.ringFilled = Math.min(this.ringFilled + frame.length, ring.length);
-  }
-
-  private readRing(): Float32Array {
-    const ring = this.ring!;
-    const out = new Float32Array(this.ringFilled);
-    const start = (this.ringWrite - this.ringFilled + ring.length) % ring.length;
-    for (let i = 0; i < this.ringFilled; i++) {
-      out[i] = ring[(start + i) % ring.length];
-    }
-    return out;
-  }
-
-  private flattenUtterance(): Float32Array {
-    const out = new Float32Array(this.utteranceLen);
-    let offset = 0;
-    for (const frame of this.utterance) {
-      out.set(frame, offset);
-      offset += frame.length;
-    }
-    return out;
-  }
-
-  private computeRms(frame: Float32Array): number {
-    let sum = 0;
-    for (let i = 0; i < frame.length; i++) {
-      sum += frame[i] * frame[i];
-    }
-    return Math.sqrt(sum / frame.length);
-  }
-
-  private encodeWav(samples: Float32Array, sampleRate: number): Blob {
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
-    const view = new DataView(buffer);
-
-    const writeString = (offset: number, str: string) => {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-      }
-    };
-
-    writeString(0, "RIFF");
-    view.setUint32(4, 36 + samples.length * 2, true);
-    writeString(8, "WAVE");
-    writeString(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, "data");
-    view.setUint32(40, samples.length * 2, true);
-
-    let offset = 44;
-    for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-      offset += 2;
-    }
-
-    return new Blob([buffer], { type: "audio/wav" });
+    const blob = new Blob([rnnoiseSrc + WORKLET_CODE], {
+      type: "application/javascript",
+    });
+    return URL.createObjectURL(blob);
   }
 
   private async requestStream(): Promise<MediaStream> {

@@ -167,3 +167,6 @@ opencode.jsonc
 # Models
 src/assets/models/
 src/assets/bounds/
+
+# Copied from node_modules at postinstall
+public/rnnoise-sync.js

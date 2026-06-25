@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "node scripts/copy-rnnoise.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.2",
@@ -22,6 +23,7 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
+    "@jitsi/rnnoise-wasm": "^0.2.1",
     "@tauri-apps/api": "^2.11.0",
     "three": "0.184.0"
   }
